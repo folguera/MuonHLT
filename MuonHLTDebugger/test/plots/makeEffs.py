@@ -52,7 +52,7 @@ def makeEfficiencies(inputfiles,num,den,title,legends,outname):
             ## SET CORRECT AXIS VALUES
             ROOT.gPad.Update()
             graph = eff.GetPaintedGraph()
-            graph.SetMinimum(0.75)
+            graph.SetMinimum(0.0)
             graph.SetMaximum(1.02)
             ROOT.gPad.Update()
             
