@@ -85,7 +85,9 @@ def makeEfficiencies(inputfiles,num,den,title,legends,outname):
         _effs.append(eff)
     o.close()
 
+    if "JPsi" in outname:     leg = ROOT.TLegend(0.30,0.15,0.70,0.3);
     leg = ROOT.TLegend(0.30,0.15,0.70,0.3);
+    if "JPsi" in outname:  leg = ROOT.TLegend(0.30,0.70,0.70,0.85);
     leg.SetLineColor(0);
     leg.SetFillStyle(0);
     leg.SetBorderSize(0)
@@ -101,8 +103,12 @@ def makeEfficiencies(inputfiles,num,den,title,legends,outname):
             ## SET CORRECT AXIS VALUES
             ROOT.gPad.Update()
             graph = eff.GetPaintedGraph()
-            graph.SetMinimum(0.0)
+            graph.SetMinimum(0.8)
             graph.SetMaximum(1.02)
+            if "NPU" in outname: graph.GetXaxis().SetRangeUser(20,70)
+            if "eff2" in num: graph.SetMinimum(0.6)
+            if "JPsi" in outname: graph.SetMinimum(0.0)
+
             ROOT.gPad.Update()
             
         else:
