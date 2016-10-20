@@ -142,6 +142,8 @@ private:
   edm::Service<TFileService> outfile_;
   std::map<std::string, TH1*> hists_;     
   
+  edm::EDGetTokenT<TrajectorySeedCollection>  theSeedsIter0Token_;
+  edm::EDGetTokenT<TrajectorySeedCollection>  theSeedsIter2Token_;
   edm::EDGetTokenT<std::vector< PileupSummaryInfo > >  puSummaryInfo_;
 
 };
@@ -176,6 +178,8 @@ MuonHLTDebugger::MuonHLTDebugger(const edm::ParameterSet& cfg):
   l2filterLabel_          (cfg.getParameter<std::string>("l2filterLabel")), 
   l3filterLabel_          (cfg.getParameter<std::string>("l3filterLabel")),
   debuglevel_             (cfg.getUntrackedParameter<unsigned int>("debuglevel")),
+  theSeedsIter0Token_     (mayConsume<TrajectorySeedCollection>(edm::InputTag("hltNewIter0HighPtTkMuPixelSeedsFromPixelTracks","","SFHLT"))),
+  theSeedsIter2Token_     (mayConsume<TrajectorySeedCollection>(edm::InputTag("hltNewIter2HighPtTkMuPixelSeeds","","SFHLT"))),
   puSummaryInfo_          (consumes<std::vector< PileupSummaryInfo > >(edm::InputTag("addPileupInfo")))
 {
 
@@ -336,7 +340,6 @@ MuonHLTDebugger::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup
     double NumL2MatchedToGen=0;
     double NumL3MatchedToGen=0;
     
-
     int numL2Found=0;
     int numL3Found=0;
     int numL3NotFound=0;
@@ -483,6 +486,20 @@ MuonHLTDebugger::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup
   if (debuglevel_ > 1) std::cout << "============================================================" << std::endl
 				 << "============================================================" << std::endl;
 
+  
+  if (L3MuonTrigObjects.size() > 0) {
+    /// NOW do other stuff::
+    edm::Handle<TrajectorySeedCollection> hltL3TrajSeedIter0;
+    iEvent.getByToken(theSeedsIter0Token_, hltL3TrajSeedIter0);
+    hists_["hlt_numSeedsIter0"]->Fill(hltL3TrajSeedIter0->size());
+    if (debuglevel_ > 1)    std::cout << "# of hltL3TrajSeedIter0: " << hltL3TrajSeedIter0->size() << std::endl;
+  
+    edm::Handle<TrajectorySeedCollection> hltL3TrajSeedIter2;
+    iEvent.getByToken(theSeedsIter2Token_, hltL3TrajSeedIter2);
+    hists_["hlt_numSeedsIter2"]->Fill(hltL3TrajSeedIter2->size());
+    if (debuglevel_ > 1)    std::cout << "# of hltL3TrajSeedIter2: " << hltL3TrajSeedIter2->size() << std::endl;
+  }
+  
 }
 
 // ------------ method called once each job just before starting event loop  ------------
@@ -571,6 +588,11 @@ MuonHLTDebugger::beginJob()
   hists_["hlt_NumL2" ] = outfile_->make<TH1F>("hlt_NumL2","Number of L2 Found", 5, -0.5, 4.5);
   hists_["hlt_NumL3" ] = outfile_->make<TH1F>("hlt_NumL3","Number of L3 Found", 5, -0.5, 4.5);
   hists_["hlt_NumNoL3" ] = outfile_->make<TH1F>("hlt_NumNoL3","Number of L3 Not Found", 5, -0.5, 4.5);
+
+  /// OTHER CHECKS: 
+  hists_["hlt_numTracks"] = outfile_->make<TH1F>("hlt_numTracks","Number of Tracks", 15, -0.5, 14.5);
+  hists_["hlt_numSeedsIter0"] = outfile_->make<TH1F>("hlt_numSeedsIter0","Number of Seeds (Iter0)", 30, -0.5, 29.5);
+  hists_["hlt_numSeedsIter2"] = outfile_->make<TH1F>("hlt_numSeedsIter2","Number of Seeds (Iter2)", 30, -0.5, 29.5);
 }
 
 void 
