@@ -144,6 +144,8 @@ private:
   
   edm::EDGetTokenT<TrajectorySeedCollection>  theSeedsIter0Token_;
   edm::EDGetTokenT<TrajectorySeedCollection>  theSeedsIter2Token_;
+  edm::EDGetTokenT<reco::TrackCollection>           theTracksIter0Token_;
+  edm::EDGetTokenT<reco::TrackCollection>           theTracksIter2Token_;
   edm::EDGetTokenT<std::vector< PileupSummaryInfo > >  puSummaryInfo_;
 
 };
@@ -180,6 +182,8 @@ MuonHLTDebugger::MuonHLTDebugger(const edm::ParameterSet& cfg):
   debuglevel_             (cfg.getUntrackedParameter<unsigned int>("debuglevel")),
   theSeedsIter0Token_     (mayConsume<TrajectorySeedCollection>(edm::InputTag("hltNewIter0HighPtTkMuPixelSeedsFromPixelTracks","","SFHLT"))),
   theSeedsIter2Token_     (mayConsume<TrajectorySeedCollection>(edm::InputTag("hltNewIter2HighPtTkMuPixelSeeds","","SFHLT"))),
+  theTracksIter0Token_    (mayConsume<reco::TrackCollection>(edm::InputTag("hltNewIter0HighPtTkMuCtfWithMaterialTracks","","SFHLT"))),
+  theTracksIter2Token_    (mayConsume<reco::TrackCollection>(edm::InputTag("hltNewIter2HighPtTkMuCtfWithMaterialTracks","","SFHLT"))),
   puSummaryInfo_          (consumes<std::vector< PileupSummaryInfo > >(edm::InputTag("addPileupInfo")))
 {
 
@@ -384,8 +388,7 @@ MuonHLTDebugger::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup
       hists_["hltL2_resEta"]->Fill(gen->eta()-l2mu->eta());
       hists_["hltL2_resPhi"]->Fill(gen->phi()-l2mu->phi());
       if (fabs(l2mu->eta()) < 0.9) hists_["hltL2_resPhi_barrel"]->Fill(gen->phi()-l2mu->phi());
-      if (fabs(l2mu->eta()) > 0.9) hists_["hltL2_resPhi_barrel"]->Fill(gen->phi()-l2mu->phi());
-      hists_["hltL2_resPhi_endcap"]->Fill(gen->phi()-l2mu->phi());
+      if (fabs(l2mu->eta()) > 0.9) hists_["hltL2_resPhi_endcap"]->Fill(gen->phi()-l2mu->phi());
       hists_["hltL2_resPt"] ->Fill((gen->pt()-l2mu->pt())/gen->pt());
 
       if (deltaR(*gen,*l2mu)<0.2 && !foundL2){
@@ -487,17 +490,33 @@ MuonHLTDebugger::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup
 				 << "============================================================" << std::endl;
 
   
+  /// NOW do other stuff::
   if (L3MuonTrigObjects.size() > 0) {
-    /// NOW do other stuff::
+    
+    // get the number of seeds... 
     edm::Handle<TrajectorySeedCollection> hltL3TrajSeedIter0;
     iEvent.getByToken(theSeedsIter0Token_, hltL3TrajSeedIter0);
     hists_["hlt_numSeedsIter0"]->Fill(hltL3TrajSeedIter0->size());
     if (debuglevel_ > 1)    std::cout << "# of hltL3TrajSeedIter0: " << hltL3TrajSeedIter0->size() << std::endl;
-  
+    
     edm::Handle<TrajectorySeedCollection> hltL3TrajSeedIter2;
     iEvent.getByToken(theSeedsIter2Token_, hltL3TrajSeedIter2);
     hists_["hlt_numSeedsIter2"]->Fill(hltL3TrajSeedIter2->size());
     if (debuglevel_ > 1)    std::cout << "# of hltL3TrajSeedIter2: " << hltL3TrajSeedIter2->size() << std::endl;
+    hists_["hlt_numSeeds"]->Fill(hltL3TrajSeedIter0->size()+hltL3TrajSeedIter2->size());
+
+    // now for the number of tracks
+    edm::Handle<reco::TrackCollection> hltL3TkTracksIter0;
+    iEvent.getByToken(theTracksIter0Token_, hltL3TkTracksIter0);
+    hists_["hlt_numTracksIter0"]->Fill(hltL3TkTracksIter0->size());
+    if (debuglevel_ > 1)     std::cout << "# of hltL3TkTracksIter0 = " << hltL3TkTracksIter0->size() << std::endl;
+
+    edm::Handle<reco::TrackCollection> hltL3TkTracksIter2;
+    iEvent.getByToken(theTracksIter2Token_, hltL3TkTracksIter2);
+    hists_["hlt_numTracksIter2"]->Fill(hltL3TkTracksIter2->size());
+    if (debuglevel_ > 1)     std::cout << "# of hltL3TkTracksIter2 = " << hltL3TkTracksIter2->size() << std::endl;
+    hists_["hlt_numTracks"]->Fill(hltL3TkTracksIter0->size()+hltL3TkTracksIter2->size());
+		      
   }
   
 }
@@ -516,19 +535,19 @@ MuonHLTDebugger::beginJob()
   hists_["hltL1_eta"]    = outfile_->make<TH1F>("hltL1_eta", "HLT (L1) #eta; #eta of L1 object", 15, eta_bins );
   hists_["hltL1_phi"]    = outfile_->make<TH1F>("hltL1_phi", "HLT (L1) #phi;#phi of L1 object", 15, -3.2, 3.2);
   hists_["hltL1_DeltaR"] = outfile_->make<TH1F>("hltL1_DeltaR", "HLT (L1) #Delta R; #Delta wrt L1 object", 15, 0., 1.);
-  hists_["hltL1_resEta"] = outfile_->make<TH1F>("hltL1_resEta", "L1 Resolution;#eta^{reco}-#eta^{HLT}",  20,  -0.01,   0.01);
-  hists_["hltL1_resPhi"] = outfile_->make<TH1F>("hltL1_resPhi", "L1 Resolution;#phi^{reco}-#phi^{HLT}",  20,  -0.01,   0.01);
-  hists_["hltL1_resPt"]  = outfile_->make<TH1F>("hltL1_resPt",  "L1 Resolution;p_{T}^{reco}-p_{T}^{HLT}", 40,  -0.30,   0.30);
+  hists_["hltL1_resEta"] = outfile_->make<TH1F>("hltL1_resEta", "L1 Resolution;#eta^{reco}-#eta^{HLT}",  100,  -0.1,   0.1);
+  hists_["hltL1_resPhi"] = outfile_->make<TH1F>("hltL1_resPhi", "L1 Resolution;#phi^{reco}-#phi^{HLT}",  100,  -0.1,   0.1);
+  hists_["hltL1_resPt"]  = outfile_->make<TH1F>("hltL1_resPt",  "L1 Resolution;p_{T}^{reco}-p_{T}^{HLT}", 60,  -0.30,   0.30);
 
   hists_["hltL2_pt"]            = outfile_->make<TH1F>("hltL2_pt",  "HLT (L2) p_{T}; p_{T} of L2 object", 11,  pt_bins );
   hists_["hltL2_eta"]           = outfile_->make<TH1F>("hltL2_eta", "HLT (L2) #eta; #eta of L2 object", 15, eta_bins );
   hists_["hltL2_phi"]           = outfile_->make<TH1F>("hltL2_phi", "HLT (L2) #phi;#phi of L2 object", 15, -3.2, 3.2);
   hists_["hltL2_DeltaR"]        = outfile_->make<TH1F>("hltL2_DeltaR", "HLT (L2) #Delta R; #Delta wrt L2 object", 15, 0., 1.);
-  hists_["hltL2_resEta"]        = outfile_->make<TH1F>("hltL2_resEta", "L2 Resolution;#eta^{reco}-#eta^{HLT}",  40,  -0.02,   0.02);
-  hists_["hltL2_resPhi"]        = outfile_->make<TH1F>("hltL2_resPhi", "L2 Resolution;#phi^{reco}-#phi^{HLT}",  40,  -0.02,   0.02);
-  hists_["hltL2_resPhi_barrel"] = outfile_->make<TH1F>("hltL2_resPhi_barrel", "L2 Resolution;#phi^{reco}-#phi^{HLT}",  40,  -0.02,   0.02);
-  hists_["hltL2_resPhi_endcap"] = outfile_->make<TH1F>("hltL2_resPhi_endcap", "L2 Resolution;#phi^{reco}-#phi^{HLT}",  40,  -0.02,   0.02);
-  hists_["hltL2_resPt"]         = outfile_->make<TH1F>("hltL2_resPt",         "L2 Resolution;p_{T}^{reco}-p_{T}^{HLT}", 40,  -0.30,   0.30);
+  hists_["hltL2_resEta"]        = outfile_->make<TH1F>("hltL2_resEta", "L2 Resolution;#eta^{reco}-#eta^{HLT}",  50,  -0.05,   0.05);
+  hists_["hltL2_resPhi"]        = outfile_->make<TH1F>("hltL2_resPhi", "L2 Resolution;#phi^{reco}-#phi^{HLT}",  50,  -0.05,   0.05);
+  hists_["hltL2_resPhi_barrel"] = outfile_->make<TH1F>("hltL2_resPhi_barrel", "L2 Resolution;#phi^{reco}-#phi^{HLT}",   50,  -0.05,   0.05);
+  hists_["hltL2_resPhi_endcap"] = outfile_->make<TH1F>("hltL2_resPhi_endcap", "L2 Resolution;#phi^{reco}-#phi^{HLT}",   50,  -0.05,   0.05);
+  hists_["hltL2_resPt"]         = outfile_->make<TH1F>("hltL2_resPt",         "L2 Resolution;p_{T}^{reco}-p_{T}^{HLT}", 60,  -0.30,   0.30);
 
   hists_["hltL3_pt"]     = outfile_->make<TH1F>("hltL3_pt",  "HLT (L3) p_{T}; p_{T} of L3 object", 11,  pt_bins );
   hists_["hltL3_eta"]    = outfile_->make<TH1F>("hltL3_eta", "HLT (L3) #eta; #eta of L3 object", 15, eta_bins );
@@ -590,9 +609,13 @@ MuonHLTDebugger::beginJob()
   hists_["hlt_NumNoL3" ] = outfile_->make<TH1F>("hlt_NumNoL3","Number of L3 Not Found", 5, -0.5, 4.5);
 
   /// OTHER CHECKS: 
-  hists_["hlt_numTracks"] = outfile_->make<TH1F>("hlt_numTracks","Number of Tracks", 15, -0.5, 14.5);
-  hists_["hlt_numSeedsIter0"] = outfile_->make<TH1F>("hlt_numSeedsIter0","Number of Seeds (Iter0)", 30, -0.5, 29.5);
-  hists_["hlt_numSeedsIter2"] = outfile_->make<TH1F>("hlt_numSeedsIter2","Number of Seeds (Iter2)", 30, -0.5, 29.5);
+  hists_["hlt_numTracks"] = outfile_->make<TH1F>("hlt_numTracks","Number of Tracks (Iter0+Iter2)", 15, -0.5, 14.5);
+  hists_["hlt_numTracksIter0"] = outfile_->make<TH1F>("hlt_numTracksIter0","Number of Tracks (Iter0)", 15, -0.5, 14.5);
+  hists_["hlt_numTracksIter2"] = outfile_->make<TH1F>("hlt_numTracksIter2","Number of Tracks (Iter2)", 15, -0.5, 14.5);
+
+  hists_["hlt_numSeeds"] = outfile_->make<TH1F>("hlt_numSeeds","Number of Seeds (Iter0+Iter2)", 50, -0.5, 49.5);  
+  hists_["hlt_numSeedsIter0"] = outfile_->make<TH1F>("hlt_numSeedsIter0","Number of Seeds (Iter0)", 50, -0.5, 49.5);
+  hists_["hlt_numSeedsIter2"] = outfile_->make<TH1F>("hlt_numSeedsIter2","Number of Seeds (Iter2)", 50, -0.5, 49.5);
 }
 
 void 
