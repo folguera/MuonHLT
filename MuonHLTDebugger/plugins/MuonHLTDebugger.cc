@@ -371,31 +371,31 @@ MuonHLTDebugger::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup
       for (auto it = l1Muons->begin(ibx); it != l1Muons->end(ibx); it++){
 	l1t::MuonRef l1muon(l1Muons, distance(l1Muons->begin(l1Muons->getFirstBX()),it) );
 	if (gen->charge() > 0 && l1muon->charge()>0) {
-	  hists_["hltL1p_resEta"]->Fill(l1muon->eta()/gen->eta()); 
-	  hists_["hltL1p_resPhi"]->Fill(l1muon->phi()/gen->phi());
-	  hists_["hltL1p_resPt"] ->Fill(l1muon->pt() /gen->pt() );
+	  hists_["hltL1p_resEta"]->Fill(l1muon->eta()-gen->eta()); 
+	  hists_["hltL1p_resPhi"]->Fill(l1muon->phi()-gen->phi());
+	  hists_["hltL1p_resPt"] ->Fill(l1muon->pt() -gen->pt() );
 
 	  if (fabs(gen->eta()) < 0.9) {
-	    hists_["hltL1p_resEta_barrel"]->Fill(l1muon->eta()/gen->eta());
-	    hists_["hltL1p_resPhi_barrel"]->Fill(l1muon->phi()/gen->phi());
+	    hists_["hltL1p_resEta_barrel"]->Fill(l1muon->eta()-gen->eta());
+	    hists_["hltL1p_resPhi_barrel"]->Fill(l1muon->phi()-gen->phi());
 	  }
 	  if (fabs(gen->eta()) > 0.9) {
-	    hists_["hltL1p_resEta_endcap"]->Fill(l1muon->eta()/gen->eta());
-	    hists_["hltL1p_resPhi_endcap"]->Fill(l1muon->phi()/gen->phi());
+	    hists_["hltL1p_resEta_endcap"]->Fill(l1muon->eta()-gen->eta());
+	    hists_["hltL1p_resPhi_endcap"]->Fill(l1muon->phi()-gen->phi());
 	  }
 	}
 	else if (gen->charge() < 0 && l1muon->charge()<0)  {
-	  hists_["hltL1m_resEta"]->Fill(l1muon->eta()/gen->eta()); 
-	  hists_["hltL1m_resPhi"]->Fill(l1muon->phi()/gen->phi());
-	  hists_["hltL1m_resPt"] ->Fill(l1muon->pt() /gen->pt() );
+	  hists_["hltL1m_resEta"]->Fill(l1muon->eta()-gen->eta()); 
+	  hists_["hltL1m_resPhi"]->Fill(l1muon->phi()-gen->phi());
+	  hists_["hltL1m_resPt"] ->Fill(l1muon->pt() -gen->pt() );
 
 	  if (fabs(gen->eta()) < 0.9) {
-	    hists_["hltL1m_resEta_barrel"]->Fill(l1muon->eta()/gen->eta());
-	    hists_["hltL1m_resPhi_barrel"]->Fill(l1muon->phi()/gen->phi());
+	    hists_["hltL1m_resEta_barrel"]->Fill(l1muon->eta()-gen->eta());
+	    hists_["hltL1m_resPhi_barrel"]->Fill(l1muon->phi()-gen->phi());
 	  }
 	  if (fabs(gen->eta()) > 0.9) {
-	    hists_["hltL1m_resEta_endcap"]->Fill(l1muon->eta()/gen->eta());
-	    hists_["hltL1m_resPhi_endcap"]->Fill(l1muon->phi()/gen->phi());
+	    hists_["hltL1m_resEta_endcap"]->Fill(l1muon->eta()-gen->eta());
+	    hists_["hltL1m_resPhi_endcap"]->Fill(l1muon->phi()-gen->phi());
 	  }
 	}
 
