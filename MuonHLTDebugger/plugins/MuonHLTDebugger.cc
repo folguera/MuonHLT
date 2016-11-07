@@ -80,6 +80,10 @@
 #include "TrackingTools/TransientTrack/interface/TransientTrackBuilder.h"
 #include "TrackingTools/Records/interface/TransientTrackRecord.h"
 #include "TrackingTools/TransientTrack/interface/TransientTrack.h"
+#include "Geometry/TrackerGeometryBuilder/interface/TrackerGeometry.h"
+#include "TrackingTools/TransientTrackingRecHit/interface/TransientTrackingRecHitBuilder.h"
+#include "TrackingTools/TransientTrackingRecHit/interface/TransientTrackingRecHit.h"
+#include "TrackingTools/Records/interface/TransientRecHitRecord.h"
 
 #include <map>
 #include <string>
@@ -762,6 +766,15 @@ MuonHLTDebugger::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup
   }
   /// DEBUGGING THE OUTSIDE-IN COMPONENT 
   try {
+
+    edm::ESHandle<TransientTrackBuilder> theB;
+    iSetup.get<TransientTrackRecord>().get("TransientTrackBuilder",theB);
+	  
+    //get the TransienTrackingRecHitBuilder needed for extracting the global position of the hits in the pixel
+    edm::ESHandle<TransientTrackingRecHitBuilder> theTrackerRecHitBuilder;
+    iSetup.get<TransientRecHitRecord>().get("WithTrackAngle",theTrackerRecHitBuilder);
+
+
     if (L2MuonTrigObjects.size() > 0) {
       if (L3MuonTrigObjects.size() > 0) {
 	edm::Handle<TrajectorySeedCollection> hltL3TrajSeedOI;
@@ -773,15 +786,10 @@ MuonHLTDebugger::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup
 
 	for(std::vector<reco::Muon>::const_iterator mu1=muons->begin(); mu1!=muons->end(); ++mu1) {
 	  
-	  cout << "HERE!!! " << endl;
-
-	  edm::ESHandle<TransientTrackBuilder> theB;
-	  iSetup.get<TransientTrackRecord>().get("TransientTrackBuilder",theB);
 	  reco::TransientTrack TransTrack;
-	  TransTrack = theB->build(mu1->innerTrack());
+	  TransTrack = theB->build(mu1->innerTrack());	  
+	  TrajectoryStateOnSurface initialTSOS = TransTrack.innermostMeasurementState();
 	  
-	  cout << "HERE2!!! " << endl;
-
 	  for(TrajectorySeedCollection::const_iterator seed = hltL3TrajSeedOI->begin(); seed != hltL3TrajSeedOI->end(); ++seed){
 	    // Get the Trajectory State on Det (persistent version of a TSOS) from the seed
 	    //	    PTrajectoryStateOnDet pTSOD = seed->startingState();
@@ -800,11 +808,22 @@ MuonHLTDebugger::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup
 	      float mindx(9999.), deltax(9999.); 
 	      float mindy(9999.), deltay(9999.); 
 	      float mindz(9999.), deltaz(9999.); 	      
-	      for (size_t irh=0; irh<TransTrack.recHitsSize(); irh++){ 
-		deltax = (*iseed).globalPosition().x() - TransTrack.recHit(irh)->globalPosition().x();
-		deltay = (*iseed).globalPosition().y() - TransTrack.recHit(irh)->globalPosition().y();
-		deltaz = (*iseed).globalPosition().z() - TransTrack.recHit(irh)->globalPosition().z();
-		
+	      for (trackingRecHit_iterator irh=TransTrack.recHitsBegin(); irh!=TransTrack.recHitsEnd(); ++irh) {
+		if (not (*irh)->isValid()) continue;
+		cout << "here" << endl;
+		TransientTrackingRecHit::RecHitPointer trecHit = theTrackerRecHitBuilder->build(  &*(*irh), initialTSOS);
+		cout << "here" << endl;
+		//		DetId detid = hit->geographicalId();
+		//		int subDet = detid.subdetId();
+		//		uint32_t rawId = hit->geographicalId().rawId();
+
+		//		bool hitInStrip=(subDet==SiStripDetId::TIB) || (subDet==SiStripDetId::TID) ||(subDet==SiStripDetId::TOB) ||(subDet==SiStripDetId::TEC);
+		cout << trecHit->localPosition().x() << endl;
+		cout << trecHit->globalPosition().x() << endl;
+		deltax = (*iseed).globalPosition().x()  - trecHit->globalPosition().x();
+		deltay = (*iseed).globalPosition().y()  - trecHit->globalPosition().y();
+		deltaz = (*iseed).globalPosition().z()  - trecHit->globalPosition().z();
+
 		cout << " DX = " << deltax;
 		cout << " DY = " << deltay;
 		cout << " DZ = " << deltaz << endl;

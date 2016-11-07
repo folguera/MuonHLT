@@ -222,10 +222,10 @@ def addL3ToHLT(process):
 	        estimator = cms.string('hltESPChi2MeasurementEstimator100'),
 	        fixedErrorRescaleFactorForHitless = cms.double(5.0),
 	        fixedErrorRescaleFactorForHits = cms.double(2.0),
-	        hitsToTry = cms.int32(1),
-	        layersToTry = cms.int32(1),
+	        hitsToTry = cms.int32(5),
+	        layersToTry = cms.int32(3),
 	        maxEtaForTOB = cms.double(1.2),
-	        maxSeeds = cms.uint32(1),
+	        maxSeeds = cms.uint32(15),
 	        minEtaForTEC = cms.double(0.8),
 	        src = cms.InputTag("hltL2Muons","UpdatedAtVtx")
 	)
