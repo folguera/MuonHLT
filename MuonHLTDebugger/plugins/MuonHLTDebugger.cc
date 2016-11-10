@@ -84,6 +84,9 @@
 #include "TrackingTools/TransientTrackingRecHit/interface/TransientTrackingRecHitBuilder.h"
 #include "TrackingTools/TransientTrackingRecHit/interface/TransientTrackingRecHit.h"
 #include "TrackingTools/Records/interface/TransientRecHitRecord.h"
+#include "DataFormats/TrackReco/interface/HitPattern.h"
+#include "DataFormats/SiStripDetId/interface/TOBDetId.h"
+#include "DataFormats/SiStripDetId/interface/TECDetId.h"
 
 #include <map>
 #include <string>
@@ -118,6 +121,9 @@ private:
 
   //  edm::InputTag vertexTag_;
   //  edm::EDGetTokenT<reco::VertexCollection> vertexToken_;
+  edm::InputTag muonTag_;
+  edm::EDGetTokenT<reco::MuonCollection> muonToken_;
+  edm::EDGetTokenT<reco::TrackExtraCollection>  TrackCollectionToken_;
   
   edm::InputTag genTag_;
   edm::EDGetTokenT<reco::GenParticleCollection> genToken_;
@@ -141,10 +147,9 @@ private:
   std::string l1filterLabel_;
   std::string l2filterLabel_;
   std::string l3filterLabel_;
-  
-  unsigned int debuglevel_;
 
-  //  MuonServiceProxy *theService;
+  unsigned int debuglevel_;
+  bool isMC_;
 
   // Trigger indexes
   int tagTriggerIndex_;
@@ -161,14 +166,17 @@ private:
   edm::EDGetTokenT<reco::MuonTrackLinksCollection>  theIOLinksToken_;
   edm::EDGetTokenT<std::vector< PileupSummaryInfo > >  puSummaryInfo_;
   edm::EDGetTokenT<reco::BeamSpot>                     theBeamSpotToken_;
-  edm::EDGetTokenT<std::vector<reco::Muon> > muonToken_;
   edm::EDGetTokenT<TrajectorySeedCollection> theSeedsOIToken_;
 
   edm::ESHandle<MagneticField> magneticField_;
   edm::ESHandle<Propagator> propagator_;
+  edm::ESHandle<TransientTrackBuilder> theB;
+  edm::ESHandle<TransientTrackingRecHitBuilder> theTrackerRecHitBuilder;
   edm::ESHandle<GlobalTrackingGeometry> trackingGeometry_;
   
-  bool isMC_;
+  std::string ttrhbuilder_ ;
+
+  MuonServiceProxy *theService;
 };
 
 //
@@ -188,6 +196,9 @@ using namespace std;
 // constructors and destructor
 //
 MuonHLTDebugger::MuonHLTDebugger(const edm::ParameterSet& cfg):
+  muonTag_                (cfg.getUntrackedParameter<edm::InputTag>("muonTag")),
+  muonToken_              (consumes<std::vector<reco::Muon> >(muonTag_)),
+  TrackCollectionToken_   (consumes<reco::TrackExtraCollection>(edm::InputTag("globalMuons"))),
   genTag_                 (cfg.getUntrackedParameter<edm::InputTag>("genParticlesTag")),
   genToken_               (consumes<reco::GenParticleCollection>(genTag_)),
   l3candTag_              (cfg.getUntrackedParameter<edm::InputTag>("L3Candidates")),
@@ -206,6 +217,7 @@ MuonHLTDebugger::MuonHLTDebugger(const edm::ParameterSet& cfg):
   l2filterLabel_          (cfg.getParameter<std::string>("l2filterLabel")), 
   l3filterLabel_          (cfg.getParameter<std::string>("l3filterLabel")),
   debuglevel_             (cfg.getUntrackedParameter<unsigned int>("debuglevel")),
+  isMC_                   (cfg.getUntrackedParameter<bool>("isMC")),
   theSeedsIter0Token_     (mayConsume<TrajectorySeedCollection>(edm::InputTag("hltNewIter0HighPtTkMuPixelSeedsFromPixelTracks","","SFHLT"))),
   theSeedsIter2Token_     (mayConsume<TrajectorySeedCollection>(edm::InputTag("hltNewIter2HighPtTkMuPixelSeeds","","SFHLT"))),
   //  theTracksNoHPIter0Token_(mayConsume<reco::TrackCollection>(edm::InputTag("hltNewIter0HighPtTkMuCtfWithMaterialTracks","","SFHLT"))),
@@ -216,10 +228,9 @@ MuonHLTDebugger::MuonHLTDebugger(const edm::ParameterSet& cfg):
   theIOLinksToken_        (mayConsume<reco::MuonTrackLinksCollection>(edm::InputTag("NewIterL3Muons","","SFHLT"))),
   puSummaryInfo_          (consumes<std::vector< PileupSummaryInfo > >(edm::InputTag("addPileupInfo"))),
   theBeamSpotToken_       (consumes<reco::BeamSpot>(edm::InputTag("hltOnlineBeamSpot"))),
-  muonToken_              (consumes<std::vector<reco::Muon> >(edm::InputTag("muons"))),
   theSeedsOIToken_        (mayConsume<TrajectorySeedCollection>(edm::InputTag("hltNewOISeedsFromL2Muons","","SFHLT")))
 {
-  //  theService = new MuonServiceProxy(cfg.getParameter<ParameterSet>("ServiceParameters"));
+  theService = new MuonServiceProxy(cfg.getParameter<ParameterSet>("ServiceParameters"));
 }
 
 
@@ -240,19 +251,18 @@ MuonHLTDebugger::~MuonHLTDebugger()
 void
 MuonHLTDebugger::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 {
-  // capable of reading edm::Views
-  //  if (DEBUGLEVEL==1) std::cout << std::endl << "========== Analysing EVENT: " << iEvent.id() << "====" << std::endl;
-
-
-  /// READING THE OBJECTS
-  edm::Handle<reco::GenParticleCollection> genParticles;
-//  try{ 
-//    iEvent.getByToken(genToken_, genParticles);
-//    isMC_ = true;
-//  }
-//  catch(...) {
-//  }
+  theService->update(iSetup);
   
+  /// READING THE OBJECTS
+  edm::Handle<reco::GenParticleCollection> genParticles;  
+  edm::Handle<reco::MuonCollection> muons;
+  if (isMC_) {
+    iEvent.getByToken(genToken_, genParticles);
+  }
+  else {
+    iEvent.getByToken(muonToken_, muons);
+  }
+
   //########################### Trigger Info ###########################
   // Get objects from the event.  
   Handle<trigger::TriggerEvent> triggerSummary;
@@ -363,7 +373,7 @@ MuonHLTDebugger::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup
   std::vector<const reco::GenParticle*> L2FoundGens;
   std::vector<const reco::GenParticle*> L3FoundGens;
   std::vector<const reco::GenParticle*> L3FoundWrtL1Gens;
-
+  
   // Loop over muons and fill histograms: 
   if (isMC_) { 
     int numGenPerEvent=0;
@@ -765,14 +775,13 @@ MuonHLTDebugger::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup
   catch (...) {
   }
   /// DEBUGGING THE OUTSIDE-IN COMPONENT 
-  try {
-
-    edm::ESHandle<TransientTrackBuilder> theB;
-    iSetup.get<TransientTrackRecord>().get("TransientTrackBuilder",theB);
-	  
-    //get the TransienTrackingRecHitBuilder needed for extracting the global position of the hits in the pixel
-    edm::ESHandle<TransientTrackingRecHitBuilder> theTrackerRecHitBuilder;
-    iSetup.get<TransientRecHitRecord>().get("WithTrackAngle",theTrackerRecHitBuilder);
+  //  try {
+//    edm::ESHandle<TransientTrackBuilder> theB;
+//    iSetup.get<TransientTrackRecord>().get("TransientTrackBuilder",theB);
+//	  
+//    //get the TransienTrackingRecHitBuilder needed for extracting the global position of the hits in the pixel
+//    //    edm::ESHandle<TransientTrackingRecHitBuilder> theTrackerRecHitBuilder;
+//    iSetup.get<TransientRecHitRecord>().get(ttrhbuilder_,theTrackerRecHitBuilder);
 
 
     if (L2MuonTrigObjects.size() > 0) {
@@ -781,18 +790,32 @@ MuonHLTDebugger::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup
 	iEvent.getByToken(theSeedsOIToken_, hltL3TrajSeedOI);
 	hists_["hlt_OI_NumSeeds"]->Fill(hltL3TrajSeedOI->size());
 	
-	edm::Handle<std::vector<reco::Muon> > muons;
-	iEvent.getByToken(muonToken_, muons);
+	///	edm::Handle<std::vector<reco::Muon> > muons;
+	//	iEvent.getByToken(muonToken_, muons);
+	
+	edm::Handle<reco::TrackExtraCollection> TrackCollection;
+	iEvent.getByToken(TrackCollectionToken_, TrackCollection);
+	
 
-	for(std::vector<reco::Muon>::const_iterator mu1=muons->begin(); mu1!=muons->end(); ++mu1) {
+	//	for (reco::MuonCollection::const_iterator recoMu = muons->begin(); recoMu!=muons->end(); ++recoMu){
+	//	  if (not (*trackRef).isValid()) continue;
+	//	  if (!muons->isValid()) continue;
+	//	reco::TrackRef trackRef = recoMu->innerTrack();
+	//const reco::Track& track = *trackRef;
+	  //	  
+	  //	  const reco::TrackExtraRef trackExtraRef = (*trackRef).extra();
+	  //	  if (not (*trackExtraRef).isValid()) continue;
+	  //	  const reco::TrackExtra& track = *trackExtraRef;
 	  
-	  reco::TransientTrack TransTrack;
-	  TransTrack = theB->build(mu1->innerTrack());	  
-	  TrajectoryStateOnSurface initialTSOS = TransTrack.innermostMeasurementState();
-	  
+	for (reco::TrackExtraCollection::const_iterator trk = TrackCollection->begin(); trk!=TrackCollection->end(); ++trk){
+	  reco::TrackExtra track = (*trk);
+
+//	  for(reco::MuonCollection::const_iterator mu=muons->begin(); mu!=muons->end(); ++mu1) {
+//	  reco::TransientTrack TransTrack;
+//	  TransTrack = theB->build(mu1->innerTrack());	  
+//	  TrajectoryStateOnSurface initialTSOS = TransTrack.innermostMeasurementState();
+
 	  for(TrajectorySeedCollection::const_iterator seed = hltL3TrajSeedOI->begin(); seed != hltL3TrajSeedOI->end(); ++seed){
-	    // Get the Trajectory State on Det (persistent version of a TSOS) from the seed
-	    //	    PTrajectoryStateOnDet pTSOD = seed->startingState();
 	    TrajectorySeed::range seedHits = seed->recHits();
 	    hists_["hlt_OI_NumberOfRecHitsPerSeed"]->Fill(seed->nHits());	    
 	    
@@ -805,45 +828,83 @@ MuonHLTDebugger::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup
 	      hists_["hlt_OI_hity"]->Fill((*iseed).globalPosition().y());
 	      hists_["hlt_OI_hitz"]->Fill((*iseed).globalPosition().z());
 
-	      float mindx(9999.), deltax(9999.); 
-	      float mindy(9999.), deltay(9999.); 
-	      float mindz(9999.), deltaz(9999.); 	      
-	      for (trackingRecHit_iterator irh=TransTrack.recHitsBegin(); irh!=TransTrack.recHitsEnd(); ++irh) {
-		if (not (*irh)->isValid()) continue;
-		cout << "here" << endl;
-		TransientTrackingRecHit::RecHitPointer trecHit = theTrackerRecHitBuilder->build(  &*(*irh), initialTSOS);
-		cout << "here" << endl;
-		//		DetId detid = hit->geographicalId();
-		//		int subDet = detid.subdetId();
-		//		uint32_t rawId = hit->geographicalId().rawId();
+	      float deltax(9999.); // mindx(9999.),minTOBdx(9999.),minTECdx(9999.);
+	      float deltay(9999.); // mindy(9999.),minTOBdy(9999.),minTECdy(9999.);
 
-		//		bool hitInStrip=(subDet==SiStripDetId::TIB) || (subDet==SiStripDetId::TID) ||(subDet==SiStripDetId::TOB) ||(subDet==SiStripDetId::TEC);
-		cout << trecHit->localPosition().x() << endl;
-		cout << trecHit->globalPosition().x() << endl;
-		deltax = (*iseed).globalPosition().x()  - trecHit->globalPosition().x();
-		deltay = (*iseed).globalPosition().y()  - trecHit->globalPosition().y();
-		deltaz = (*iseed).globalPosition().z()  - trecHit->globalPosition().z();
-
-		cout << " DX = " << deltax;
-		cout << " DY = " << deltay;
-		cout << " DZ = " << deltaz << endl;
-		if (abs(deltax) < mindx) mindx = deltax;
-		if (abs(deltay) < mindy) mindy = deltay;
-		if (abs(deltaz) < mindz) mindz = deltaz;
-
-	      }
+	      DetId detidSeed = (*iseed).geographicalId();
+	      int subDetSeed = detidSeed.subdetId();
 	      
-	      hists_["hlt_OI_hitdx"]->Fill(mindx);
-	      hists_["hlt_OI_hitdy"]->Fill(mindy);
-	      hists_["hlt_OI_hitdz"]->Fill(mindz);
-	    }
+	      for (trackingRecHit_iterator hitIt = track.recHitsBegin(); hitIt != track.recHitsEnd(); ++hitIt) {
+		if (not (*hitIt)->isValid()) continue;
+		const TrackingRecHit* rechit = (*hitIt)->hit();
+		DetId detid = rechit->geographicalId();
+		int subDet = detid.subdetId();
+		
+		// Make sure both the hit from the seed and the tracker hit are in the same detector... 
+		if (detid.det() != detidSeed.det()) continue;
+		if (subDetSeed != subDet) continue;
+		if (detid.rawId() != detidSeed.rawId()) continue; // SAME layer, rod, module (TOB) or wheel, petal, ring, module (TEC) detector.
+		
+  		deltax = (*iseed).localPosition().x() - rechit->localPosition().x();
+  		deltay = (*iseed).localPosition().y() - rechit->localPosition().y();
+		//  		deltaz = (*iseed).localPosition().z() - rechit->localPosition().z();
+
+		hists_["hlt_OI_hitdx"]->Fill(deltax);
+		hists_["hlt_OI_hitdy"]->Fill(deltay);
+		if (subDet == StripSubdetector::TOB) {
+		  TOBDetId myDet(detid.rawId());
+		  hists_["hlt_OI_TOBhitdx"]->Fill(deltax);
+		  hists_["hlt_OI_TOBhitdy"]->Fill(deltay);
+		  
+		  if (myDet.isRPhi()) { 
+		    hists_["hlt_OI_TOBmonohitdx"]->Fill(deltax);
+		    hists_["hlt_OI_TOBmonohitdy"]->Fill(deltay);
+		  }
+		  if (myDet.isStereo()){
+		    hists_["hlt_OI_TOBstereohitdx"]->Fill(deltax);
+		    hists_["hlt_OI_TOBstereohitdy"]->Fill(deltay);
+		  }
+		}
+		if (subDet == StripSubdetector::TEC) {
+		  TECDetId myDet(detid.rawId());
+		  hists_["hlt_OI_TEChitdx"]->Fill(deltax);
+		  hists_["hlt_OI_TEChitdy"]->Fill(deltay);
+		  if (myDet.isRPhi()) { 
+		    hists_["hlt_OI_TECmonohitdx"]->Fill(deltax);
+		    hists_["hlt_OI_TECmonohitdy"]->Fill(deltay);
+		  }
+		  if (myDet.isStereo()){
+		    hists_["hlt_OI_TECstereohitdx"]->Fill(deltax);
+		    hists_["hlt_OI_TECstereohitdy"]->Fill(deltay);
+		  }
+		}
+
+  		/*
+		  if (abs(deltax) < mindx) mindx = deltax;
+		  if (abs(deltay) < mindy) mindy = deltay;
+		  if (abs(deltaz) < mindz) mindz = deltaz;
+		  
+		  // enum SubDetector { TIB=3,TID=4,TOB=5,TEC=6 };
+		  if (subDet == StripSubdetector::TOB) { 
+		  if (abs(deltax) < minTOBdx) minTOBdx = deltax;
+		  if (abs(deltay) < minTOBdy) minTOBdy = deltay;
+		  if (abs(deltaz) < minTOBdz) minTOBdz = deltaz;
+		  }
+		  if (subDetSeed == StripSubdetector::TEC) {
+		  if (abs(deltax) < minTECdx) minTECdx = deltax;
+		  if (abs(deltay) < minTECdy) minTECdy = deltay;
+		  if (abs(deltaz) < minTECdz) minTECdz = deltaz;		  
+		  }
+		  } */
+	      }	//rechits
+	    } // seeds
 	  } // iterator over HLT Trajectory Seed collection
 	} // iterator  over muon collection 
       } // L3TriggerObject > 0
     } // L2TriggerObject > 0
-  } // try {
-  catch (...) {
-  }
+//  }
+//  catch (...) {
+//  }
 }
  
 
@@ -1011,18 +1072,38 @@ MuonHLTDebugger::beginJob()
 
   hists_["hlt_OI_NumSeeds"]               = outfile_->make<TH1F>("hlt_OI_NumSeeds","Number of Seeds (OI)", 50, -0.5, 49.5);
   hists_["hlt_OI_NumberOfRecHitsPerSeed"] = outfile_->make<TH1F>("hlt_OI_NumberOfRecHitsPerSeed","Number Hits per Seed (OI)", 50, -0.5, 49.5);
-  hists_["hlt_OI_seedPt"]                 = outfile_->make<TH1F>("hlt_OI_seedPt","Seed p_{T} (OI);p_{T} seed", 11,  pt_bins );
-  hists_["hlt_OI_seedPhi"]                = outfile_->make<TH1F>("hlt_OI_seedPhi","Seed #phi (OI);#phi seed", 15, -3.3, 3.3);
-  hists_["hlt_OI_seedEta"]                = outfile_->make<TH1F>("hlt_OI_seedEta","Seed #eta (OI);#eta seed", 15,  eta_bins ) ;
-  hists_["hlt_OI_hitPt"]                 = outfile_->make<TH1F>("hlt_OI_hitPt","Hit p_{T} (OI);p_{T} hit", 11,  pt_bins );
-  hists_["hlt_OI_hitPhi"]                = outfile_->make<TH1F>("hlt_OI_hitPhi","Hit #phi (OI);#phi hit", 15, -3.3, 3.3);
-  hists_["hlt_OI_hitEta"]                = outfile_->make<TH1F>("hlt_OI_hitEta","Hit #eta (OI);#eta hit", 15,  eta_bins ) ;
-  hists_["hlt_OI_hitx"]                  = outfile_->make<TH1F>("hlt_OI_hitx","Hit x (OI);x hit", 500, -500, 500);
-  hists_["hlt_OI_hity"]                  = outfile_->make<TH1F>("hlt_OI_hity","Hit y (OI);y hit", 500, -500, 500);
-  hists_["hlt_OI_hitz"]                  = outfile_->make<TH1F>("hlt_OI_hitz","Hit z (OI);z hit", 500, -500, 500);
-  hists_["hlt_OI_hitdx"]                  = outfile_->make<TH1F>("hlt_OI_hitdx","Hit #Delta x (OI);#Delta x hit", 100, -50, 50);
-  hists_["hlt_OI_hitdy"]                  = outfile_->make<TH1F>("hlt_OI_hitdy","Hit #Delta y (OI);#Delta y hit", 100, -50, 50);
-  hists_["hlt_OI_hitdz"]                  = outfile_->make<TH1F>("hlt_OI_hitdz","Hit #Delta z (OI);#Delta z hit", 100, -50, 50);
+  hists_["hlt_OI_hitPt"]                  = outfile_->make<TH1F>("hlt_OI_hitPt","Hit p_{T} (OI);p_{T} hit", 11,  pt_bins );
+  hists_["hlt_OI_hitPhi"]                 = outfile_->make<TH1F>("hlt_OI_hitPhi","Hit #phi (OI);#phi hit", 15, -3.3, 3.3);
+  hists_["hlt_OI_hitEta"]                 = outfile_->make<TH1F>("hlt_OI_hitEta","Hit #eta (OI);#eta hit", 15,  eta_bins ) ;
+  hists_["hlt_OI_hitx"]                   = outfile_->make<TH1F>("hlt_OI_hitx","Hit x (OI);x hit", 200, -100, 100);
+  hists_["hlt_OI_hity"]                   = outfile_->make<TH1F>("hlt_OI_hity","Hit y (OI);y hit", 200, -100, 100);
+  hists_["hlt_OI_hitz"]                   = outfile_->make<TH1F>("hlt_OI_hitz","Hit z (OI);z hit", 600, -300, 300);
+  hists_["hlt_OI_hitdx"]                  = outfile_->make<TH1F>("hlt_OI_hitdx","Hit #Delta x (OI);#Delta x hit", 100, -5, 5);
+  hists_["hlt_OI_hitdy"]                  = outfile_->make<TH1F>("hlt_OI_hitdy","Hit #Delta y (OI);#Delta y hit", 100, -0.05, 0.05);
+  //  hists_["hlt_OI_hitdz"]                  = outfile_->make<TH1F>("hlt_OI_hitdz","Hit #Delta z (OI);#Delta z hit", 100, -0.005, 0.005);
+
+  /// TOB hits
+  hists_["hlt_OI_TOBhitdx"]               = outfile_->make<TH1F>("hlt_OI_TOBhitdx",      "TOB Hit #Delta x (OI);#Delta x hit", 100, -5, 5);
+  hists_["hlt_OI_TOBhitdy"]               = outfile_->make<TH1F>("hlt_OI_TOBhitdy",      "TOB Hit #Delta y (OI);#Delta y hit", 100, -0.015, 0.015);
+  //  hists_["hlt_OI_TOBhitdz"]               = outfile_->make<TH1F>("hlt_OI_TOBhitdz",      "TOB Hit #Delta z (OI);#Delta z hit", 100, -0.005, 0.005);
+  hists_["hlt_OI_TOBmonohitdx"]           = outfile_->make<TH1F>("hlt_OI_TOBmonohitdx",  "TOB Mono Hit #Delta x (OI);#Delta x hit", 100, -5, 5);
+  hists_["hlt_OI_TOBmonohitdy"]           = outfile_->make<TH1F>("hlt_OI_TOBmonohitdy",  "TOB Mono Hit #Delta y (OI);#Delta y hit", 100, -0.015, 0.015);
+  //  hists_["hlt_OI_TOBmonohitdz"]           = outfile_->make<TH1F>("hlt_OI_TOBmonohitdz",  "TOB Mono Hit #Delta z (OI);#Delta z hit", 100, -0.005, 0.005);
+  hists_["hlt_OI_TOBstereohitdx"]         = outfile_->make<TH1F>("hlt_OI_TOBstereohitdx","TOB Stereo Hit #Delta x (OI);#Delta x hit", 100, -5, 5);
+  hists_["hlt_OI_TOBstereohitdy"]         = outfile_->make<TH1F>("hlt_OI_TOBstereohitdy","TOB Stereo Hit #Delta y (OI);#Delta y hit", 100, -0.015, 0.015);
+  //  hists_["hlt_OI_TOBstereohitdz"]         = outfile_->make<TH1F>("hlt_OI_TOBstereohitdz","TOB Stereo Hit #Delta z (OI);#Delta z hit", 100, -0.005, 0.005);
+
+  /// TEC hits
+  hists_["hlt_OI_TEChitdx"]               = outfile_->make<TH1F>("hlt_OI_TEChitdx",      "TEC Hit #Delta x (OI);#Delta x hit", 100, -5, 5);
+  hists_["hlt_OI_TEChitdy"]               = outfile_->make<TH1F>("hlt_OI_TEChitdy",      "TEC Hit #Delta y (OI);#Delta y hit", 100, -0.05, 0.05);
+  //  hists_["hlt_OI_TEChitdz"]               = outfile_->make<TH1F>("hlt_OI_TEChitdz",      "TEC Hit #Delta z (OI);#Delta z hit", 100, -0.005, 0.005);
+  hists_["hlt_OI_TECmonohitdx"]           = outfile_->make<TH1F>("hlt_OI_TECmonohitdx",  "TEC Mono Hit #Delta x (OI);#Delta x hit", 100, -5, 5);
+  hists_["hlt_OI_TECmonohitdy"]           = outfile_->make<TH1F>("hlt_OI_TECmonohitdy",  "TEC Mono Hit #Delta y (OI);#Delta y hit", 100, -0.05, 0.05);
+  //  hists_["hlt_OI_TECmonohitdz"]           = outfile_->make<TH1F>("hlt_OI_TECmonohitdz",  "TEC Mono Hit #Delta z (OI);#Delta z hit", 100, -0.005, 0.005);
+  hists_["hlt_OI_TECstereohitdx"]         = outfile_->make<TH1F>("hlt_OI_TECstereohitdx","TEC Stereo Hit #Delta x (OI);#Delta x hit", 100, -5, 5);
+  hists_["hlt_OI_TECstereohitdy"]         = outfile_->make<TH1F>("hlt_OI_TECstereohitdy","TEC Stereo Hit #Delta y (OI);#Delta y hit", 100, -0.05, 0.05);
+  //  hists_["hlt_OI_TECstereohitdz"]         = outfile_->make<TH1F>("hlt_OI_TECstereohitdz","TEC Stereo Hit #Delta z (OI);#Delta z hit", 100, -0.005, 0.005);
+
 }
 
 void 
@@ -1054,8 +1135,6 @@ MuonHLTDebugger::beginRun(const edm::Run & run, const edm::EventSetup & eventSet
     // Now crash
     assert(false);    
   }  
-
-  isMC_ = false;
 }
 // ------------ method called once each job just after ending the event loop  ------------
 void MuonHLTDebugger::endJob() {}
