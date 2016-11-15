@@ -166,6 +166,7 @@ private:
   edm::EDGetTokenT<reco::MuonTrackLinksCollection>  theIOLinksToken_;
   edm::EDGetTokenT<std::vector< PileupSummaryInfo > >  puSummaryInfo_;
   edm::EDGetTokenT<reco::BeamSpot>                     theBeamSpotToken_;
+  edm::EDGetTokenT<reco::VertexCollection>  theVertexToken_;
   edm::EDGetTokenT<TrajectorySeedCollection> theSeedsOIToken_;
 
   edm::ESHandle<MagneticField> magneticField_;
@@ -176,7 +177,7 @@ private:
   
   std::string ttrhbuilder_ ;
 
-  MuonServiceProxy *theService;
+  //  MuonServiceProxy *theService;
 };
 
 //
@@ -228,9 +229,10 @@ MuonHLTDebugger::MuonHLTDebugger(const edm::ParameterSet& cfg):
   theIOLinksToken_        (mayConsume<reco::MuonTrackLinksCollection>(edm::InputTag("NewIterL3Muons","","SFHLT"))),
   puSummaryInfo_          (consumes<std::vector< PileupSummaryInfo > >(edm::InputTag("addPileupInfo"))),
   theBeamSpotToken_       (consumes<reco::BeamSpot>(edm::InputTag("hltOnlineBeamSpot"))),
+  theVertexToken_         (consumes<reco::VertexCollection>(edm::InputTag("offlinePrimaryVertices"))),
   theSeedsOIToken_        (mayConsume<TrajectorySeedCollection>(edm::InputTag("hltNewOISeedsFromL2Muons","","SFHLT")))
 {
-  theService = new MuonServiceProxy(cfg.getParameter<ParameterSet>("ServiceParameters"));
+  //  theService = new MuonServiceProxy(cfg.getParameter<ParameterSet>("ServiceParameters"));
 }
 
 
@@ -251,7 +253,7 @@ MuonHLTDebugger::~MuonHLTDebugger()
 void
 MuonHLTDebugger::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 {
-  theService->update(iSetup);
+  //  theService->update(iSetup);
   
   /// READING THE OBJECTS
   edm::Handle<reco::GenParticleCollection> genParticles;  
@@ -262,7 +264,7 @@ MuonHLTDebugger::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup
   else {
     iEvent.getByToken(muonToken_, muons);
   }
-
+  
   //########################### Trigger Info ###########################
   // Get objects from the event.  
   Handle<trigger::TriggerEvent> triggerSummary;
@@ -296,7 +298,20 @@ MuonHLTDebugger::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup
       }
     }
   }
-
+  
+  edm::Handle<reco::VertexCollection> pvHandle; 
+  iEvent.getByToken(theVertexToken_, pvHandle);
+  const reco::VertexCollection & vertices = *pvHandle.product();
+  unsigned int nGoodVtx = 0; 
+  for(reco::VertexCollection::const_iterator it=vertices.begin(); it!=vertices.end(); ++it) {
+    if( it->ndof()>4                     && 
+	(fabs(it->z())<=24.)             && 
+	(fabs(it->position().rho())<=2.)   ) 
+      nGoodVtx++;
+  }
+  if( nGoodVtx==0 ) return;
+  const reco::Vertex & pv = vertices[0];
+  
   Handle<reco::BeamSpot> recoBeamSpotHandle;
   iEvent.getByToken(theBeamSpotToken_,recoBeamSpotHandle);
   const reco::BeamSpot& beamSpot = *recoBeamSpotHandle;
@@ -349,31 +364,8 @@ MuonHLTDebugger::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup
     std::cout << "Number of L3s passing filter = " << L3MuonTrigObjects.size() << std::endl;
   }
 
-  // Check by-module... 
-  //  const std::vector<std::string>& moduleLabels(hltConfig_.moduleLabels(triggerIndex_));
-  //  for (uint32_t i = 0; i < moduleLabels.size(); ++i){    
-  //    size_t filterIndex = (*triggerSummary).filterIndex(edm::InputTag( moduleLabels[i].c_str(), "", triggerProcess_));
-  //    
-  //    if (filterIndex < (*triggerSummary).sizeFilters()) {
-  //      const trigger::Keys &keys = (*triggerSummary).filterKeys(filterIndex);
-  //      for (size_t j = 0; j < keys.size(); j++ ){
-  //	trigger::TriggerObject foundObject = (allTriggerObjects)[keys[j]];
-  //	if (foundObject.pt()>0) hists_["hlt_counter"]->Fill(i+1);
-  //      }
-  //    }
-  //  }
   
-  double NumL1MatchedToGenInEvent=0;
-  double NumL2MatchedToGenInEvent=0;
-  double NumL3MatchedToGenInEvent=0;
-
-  std::vector<const trigger::TriggerObject*> foundL3Trig;
-
-  std::vector<const reco::GenParticle*> L1FoundGens;
-  std::vector<const reco::GenParticle*> L2FoundGens;
-  std::vector<const reco::GenParticle*> L3FoundGens;
-  std::vector<const reco::GenParticle*> L3FoundWrtL1Gens;
-  
+   
   // Loop over muons and fill histograms: 
   if (isMC_) { 
     int numGenPerEvent=0;
@@ -393,15 +385,8 @@ MuonHLTDebugger::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup
 	std::cout << "gen muon found: pt: " << gen->pt() 
 		  << " eta: " << gen->eta() 
 		  << " phi: " << gen->phi() << std::endl;
-      
-      double NumL1MatchedToGen=0;
-      double NumL2MatchedToGen=0;
-      double NumL3MatchedToGen=0;
-      
-      int numL2Found=0;
-      int numL3Found=0;
-      int numL3NotFound=0;
-    
+
+
       /// DRAWING RESOLUTION PLOTS: 
       for (int ibx = l1Muons->getFirstBX(); ibx <= l1Muons->getLastBX(); ++ibx) {
 	if (ibx != 0) continue; 
@@ -411,7 +396,7 @@ MuonHLTDebugger::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup
 	    hists_["hltL1p_resEta"]->Fill(l1muon->eta()-gen->eta()); 
 	    hists_["hltL1p_resPhi"]->Fill(l1muon->phi()-gen->phi());
 	    hists_["hltL1p_resPt"] ->Fill(l1muon->pt() -gen->pt() );
-
+	    
 	    if (fabs(gen->eta()) < 0.9) {
 	      hists_["hltL1p_resEta_barrel"]->Fill(l1muon->eta()-gen->eta());
 	      hists_["hltL1p_resPhi_barrel"]->Fill(l1muon->phi()-gen->phi());
@@ -425,7 +410,7 @@ MuonHLTDebugger::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup
 	    hists_["hltL1m_resEta"]->Fill(l1muon->eta()-gen->eta()); 
 	    hists_["hltL1m_resPhi"]->Fill(l1muon->phi()-gen->phi());
 	    hists_["hltL1m_resPt"] ->Fill(l1muon->pt() -gen->pt() );
-
+	    
 	    if (fabs(gen->eta()) < 0.9) {
 	      hists_["hltL1m_resEta_barrel"]->Fill(l1muon->eta()-gen->eta());
 	      hists_["hltL1m_resPhi_barrel"]->Fill(l1muon->phi()-gen->phi());
@@ -436,45 +421,17 @@ MuonHLTDebugger::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup
 	    }
 	  }
 
-	}
-      }
-    
-    
-      //L1 Match:
-      bool foundL1=false;
-      for (unsigned int t(0); t < L1MuonTrigObjects.size(); ++t){
-	trigger::TriggerObject* l1mu = &L1MuonTrigObjects.at(t);
-	if (debuglevel_ > 1) std::cout << "\tL1["<<t<<"]: deltaR(*gen,*l1mu): " << deltaR(*gen,*l1mu) << std::endl;
-	hists_["hltL1_DeltaR"]->Fill(deltaR(*gen,*l1mu));
-	hists_["hltL1_pt"]    ->Fill(l1mu->pt());
-	hists_["hltL1_eta"]   ->Fill(l1mu->eta());
-	hists_["hltL1_phi"]   ->Fill(l1mu->phi());
-  
-	if (deltaR(*gen,*l1mu)<0.4 && !foundL1){
-	  if (debuglevel_ > 1)  std::cout << "\t\tL1 found: pt: " << l1mu->pt() << " eta: " << l1mu->eta() << std::endl;
-	  hists_["effL3L1Eta_den" ] ->Fill(gen->eta());
-	  hists_["effL3L1Phi_den" ] ->Fill(gen->phi());
-	  hists_["effL3L1Pt_den"  ] ->Fill(gen->pt());
-	  hists_["effL3L1NPU_den" ] ->Fill(nbMCvtx);
-	  //	hists_["effL3L1NVtx_den"] ->Fill(
-	  ++NumL1MatchedToGen;
-	  ++NumL1MatchedToGenInEvent;
-	  foundL1=true;
-	  L1FoundGens.push_back(gen);
-	}
-      }
-    
-      //L2 Match:
-      bool foundL2=false;
+	} //l1Muons->begin(ibx)
+      } //L1 l1Muons->getFirstBX()
+      
       for (unsigned int t(0); t < L2MuonTrigObjects.size(); ++t){
 	trigger::TriggerObject* l2mu = &L2MuonTrigObjects.at(t);
-	if (debuglevel_ > 1)  std::cout << "\tL2["<<t<<"] deltaR(*gen,*l2mu): " << deltaR(*gen,*l2mu) << std::endl;
-
+	
 	if (gen->charge() > 0) {
 	  hists_["hltL2p_resEta"]->Fill(l2mu->eta()-gen->eta()); 
 	  hists_["hltL2p_resPhi"]->Fill(l2mu->phi()-gen->phi());
 	  hists_["hltL2p_resPt"] ->Fill(l2mu->pt() -gen->pt() );
-	
+	  
 	  if (fabs(gen->eta()) < 0.9) {
 	    hists_["hltL2p_resEta_barrel"]->Fill(l2mu->eta()-gen->eta());
 	    hists_["hltL2p_resPhi_barrel"]->Fill(l2mu->phi()-gen->phi());
@@ -488,7 +445,7 @@ MuonHLTDebugger::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup
 	  hists_["hltL2m_resEta"]->Fill(l2mu->eta()-gen->eta()); 
 	  hists_["hltL2m_resPhi"]->Fill(l2mu->phi()-gen->phi());
 	  hists_["hltL2m_resPt"] ->Fill(l2mu->pt() -gen->pt() );
-	
+	  
 	  if (fabs(gen->eta()) < 0.9) {
 	    hists_["hltL2m_resEta_barrel"]->Fill(l2mu->eta()-gen->eta());
 	    hists_["hltL2m_resPhi_barrel"]->Fill(l2mu->phi()-gen->phi());
@@ -498,110 +455,137 @@ MuonHLTDebugger::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup
 	    hists_["hltL2m_resPhi_endcap"]->Fill(l2mu->phi()-gen->phi());
 	  }
 	}
+      } // L2
+    } //genParticles
+  }//isMC
+  
+  int numL3NotFound=0;  
+  std::vector<const reco::Muon*> L1Found;
+  std::vector<const reco::Muon*> L2Found;
+  std::vector<const reco::Muon*> L3Found;  
+  for (reco::MuonCollection::const_iterator recoMu = muons->begin(); recoMu!=muons->end(); ++recoMu){    
+    if (recoMu->pt() < 10) continue;
+    if (fabs(recoMu->eta())>2.4) continue;
+
+    //L1 Match:
+    bool foundL1=false;
+    for (unsigned int t(0); t < L1MuonTrigObjects.size(); ++t){
+      trigger::TriggerObject* l1mu = &L1MuonTrigObjects.at(t);
+      hists_["hltL1_DeltaR"]->Fill(deltaR(*recoMu,*l1mu));
+      hists_["hltL1_pt"]    ->Fill(l1mu->pt());
+      hists_["hltL1_eta"]   ->Fill(l1mu->eta());
+      hists_["hltL1_phi"]   ->Fill(l1mu->phi());
       
-	hists_["hltL2_DeltaR"]->Fill(deltaR(*gen,*l2mu));
-	hists_["hltL2_pt"]    ->Fill(l2mu->pt());
-	hists_["hltL2_eta"]   ->Fill(l2mu->eta());
-	hists_["hltL2_phi"]   ->Fill(l2mu->phi());
-
-	if (deltaR(*gen,*l2mu)<0.2 && !foundL2){
-	  if (debuglevel_ > 1)   std::cout << "\t\tL2 found: pt: " << l2mu->pt() << " eta: " << l2mu->eta() << std::endl;
-	  hists_["effL3L2Eta_den" ] ->Fill(gen->eta());
-	  hists_["effL3L2Phi_den" ] ->Fill(gen->phi());
-	  hists_["effL3L2Pt_den"  ] ->Fill(gen->pt());
-	  hists_["effL3L2NPU_den" ] ->Fill(nbMCvtx);
-	  foundL2=true;
-	  ++numL2Found;	  
-	  ++NumL2MatchedToGen;
-	  ++NumL2MatchedToGenInEvent;
-	  L2FoundGens.push_back(gen);
-	}
+      if (deltaR(*recoMu,*l1mu)<0.4 && !foundL1){ // one match per recoMuon
+	hists_["effL3L1Eta_den" ] ->Fill(recoMu->eta());
+	hists_["effL3L1Phi_den" ] ->Fill(recoMu->phi());
+	hists_["effL3L1Pt_den"  ] ->Fill(recoMu->pt());
+	hists_["effL3L1NPU_den" ] ->Fill(nbMCvtx);
+	foundL1=true;
+	L1Found.push_back(&(*recoMu));
       }
-
-      if (foundL2){
-	//L3 Match:
-	bool foundL3=false;
-	std::vector<const trigger::TriggerObject*> foundL3Trig;    
-	for (unsigned int t(0); t < L3MuonTrigObjects.size(); ++t){
-	  trigger::TriggerObject* l3mu = &L3MuonTrigObjects.at(t);
-	  hists_["hltL3_DeltaR"]->Fill(deltaR(*gen,*l3mu));
-	  hists_["hltL3_pt"]    ->Fill(l3mu->pt());
-	  hists_["hltL3_eta"]   ->Fill(l3mu->eta());
-	  hists_["hltL3_phi"]   ->Fill(l3mu->phi());
-	  hists_["hltL3_resEta"]->Fill(l3mu->eta()-gen->eta());
-	  hists_["hltL3_resPhi"]->Fill(l3mu->phi()-gen->phi());
-	  hists_["hltL3_resPt"] ->Fill(l3mu->pt() -gen->pt() );
-	  if (debuglevel_ > 1)  std::cout << "\tL3["<<t<<"]: deltaR(*gen,*l3mu): " << deltaR(*gen,*l3mu) << std::endl;
-	  if (deltaR(*gen,*l3mu)<0.01 && !foundL3){
-	    if (std::find(foundL3Trig.begin(), foundL3Trig.end(), l3mu)!=foundL3Trig.end()) std::cout << "THIS L3 WAS ALREADY FOUND!" << std::endl;
-	    foundL3Trig.push_back(l3mu);
-	    if (debuglevel_ > 1)  std::cout << "\t\tL3 found: pt: " << l3mu->pt() << " eta: " << l3mu->eta() << std::endl;
-	    hists_["effL3Eta_num" ] ->Fill(gen->eta());
-	    hists_["effL3Phi_num" ] ->Fill(gen->phi());
-	    hists_["effL3Pt_num"  ] ->Fill(gen->pt());
-	    hists_["effL3NPU_num" ] ->Fill(nbMCvtx);
-	    ++NumL3MatchedToGen;
-	    ++NumL3MatchedToGenInEvent;
-	    L3FoundGens.push_back(gen);
-	    foundL3=true;
-	    ++numL3Found;
-	  }
-	  else {
-	    ++numL3NotFound;
-	  }
-	}
-      }
-
-      hists_["hlt_NumL1Match" ]->Fill(NumL1MatchedToGen);
-      hists_["hlt_NumL2Match" ]->Fill(NumL2MatchedToGen);
-      hists_["hlt_NumL3Match" ]->Fill(NumL3MatchedToGen);
-      hists_["hlt_NumL2" ]     ->Fill(numL2Found);
-      hists_["hlt_NumL3" ]     ->Fill(numL3Found);
-      hists_["hlt_NumNoL3" ]   ->Fill(numL3NotFound);
+    }
     
-      if (debuglevel_ > 1)   std::cout << "numL2Found: " << numL2Found
-				       << " numL3Found: " << numL3Found
-				       << " numL3NotFound: " << numL3NotFound
-				       << std::endl;
-    } //genMuon
+    //L2 Match:
+    bool foundL2=false;
+    for (unsigned int t(0); t < L2MuonTrigObjects.size(); ++t){
+      trigger::TriggerObject* l2mu = &L2MuonTrigObjects.at(t);
+      if (debuglevel_ > 1)  std::cout << "\tL2["<<t<<"] deltaR(*mu,*l2mu): " << endl; //<< deltaR(*recoMu,*l2mu) << std::endl;
+      
+      hists_["hltL2_DeltaR"]->Fill(deltaR(*recoMu,*l2mu));
+      hists_["hltL2_pt"]    ->Fill(l2mu->pt());
+      hists_["hltL2_eta"]   ->Fill(l2mu->eta());
+      hists_["hltL2_phi"]   ->Fill(l2mu->phi());
+      if (deltaR((*recoMu),*l2mu)<0.3 && !foundL2){
+      	if (debuglevel_ > 1)   std::cout << "\t\tL2 found: pt: " << l2mu->pt() << " eta: " << l2mu->eta() << std::endl;
+	hists_["effL3L2Eta_den" ] ->Fill(recoMu->eta());
+	hists_["effL3L2Phi_den" ] ->Fill(recoMu->phi());
+	hists_["effL3L2Pt_den"  ] ->Fill(recoMu->pt());
+	hists_["effL3L2NPU_den" ] ->Fill(nbMCvtx);
+	hists_["effL3L2NPV_den" ] ->Fill(nGoodVtx);
+	hists_["effL3L2dxy_den" ] ->Fill(std::abs(recoMu->muonBestTrack()->dxy(pv.position())));
+	hists_["effL3L2dz_den" ]  ->Fill(std::abs(recoMu->muonBestTrack()->dz(pv.position())));
+	foundL2=true;
+	L2Found.push_back(&(*recoMu));
+      }
+    }
+        
+    if (!foundL2) continue;  // do not continue if we don't find any L2 
+    
+    //L3 Match:
+    bool foundL3=false;
+    std::vector<const trigger::TriggerObject*> foundL3Trig;    
+    for (unsigned int t(0); t < L3MuonTrigObjects.size(); ++t){
+      trigger::TriggerObject* l3mu = &L3MuonTrigObjects.at(t);
+      hists_["hltL3_DeltaR"]->Fill(deltaR(*recoMu,*l3mu));
+      hists_["hltL3_pt"]    ->Fill(l3mu->pt());
+      hists_["hltL3_eta"]   ->Fill(l3mu->eta());
+      hists_["hltL3_phi"]   ->Fill(l3mu->phi());
+      hists_["hltL3_resEta"]->Fill(l3mu->eta()-recoMu->eta());
+      hists_["hltL3_resPhi"]->Fill(l3mu->phi()-recoMu->phi());
+      hists_["hltL3_resPt"] ->Fill(l3mu->pt() -recoMu->pt() );
+      if (debuglevel_ > 1)  std::cout << "\tL3["<<t<<"]: deltaR(*recoMu,*l3mu): " << deltaR(*recoMu,*l3mu) << std::endl;
+      if (deltaR(*recoMu,*l3mu)<0.01 && !foundL3){
+	if (std::find(foundL3Trig.begin(), foundL3Trig.end(), l3mu)!=foundL3Trig.end()) std::cout << "THIS L3 WAS ALREADY FOUND!" << std::endl;
+	foundL3Trig.push_back(l3mu);
+	if (debuglevel_ > 1)  std::cout << "\t\tL3 found: pt: " << l3mu->pt() << " eta: " << l3mu->eta() << std::endl;
+	hists_["effL3Eta_num" ] ->Fill(recoMu->eta());
+	hists_["effL3Phi_num" ] ->Fill(recoMu->phi());
+	hists_["effL3Pt_num"  ] ->Fill(recoMu->pt());
+	hists_["effL3NPU_num" ] ->Fill(nbMCvtx);
+	hists_["effL3NPV_num" ] ->Fill(nGoodVtx);
+	hists_["effL3dxy_num" ] ->Fill(std::abs(recoMu->muonBestTrack()->dxy(pv.position())));
+	hists_["effL3dz_num" ]  ->Fill(std::abs(recoMu->muonBestTrack()->dz(pv.position())));
+	L3Found.push_back(&(*recoMu));
+      }
+      else {
+	++numL3NotFound;
+      }
+    }
   }
+
+  hists_["hlt_NumL1" ]     ->Fill(L1MuonTrigObjects.size());
+  hists_["hlt_NumL2" ]     ->Fill(L2MuonTrigObjects.size());
+  hists_["hlt_NumL3" ]     ->Fill(L3MuonTrigObjects.size());
+  hists_["hlt_NumL1Match" ]->Fill(L1Found.size());
+  hists_["hlt_NumL2Match" ]->Fill(L2Found.size());
+  hists_["hlt_NumL3Match" ]->Fill(L3Found.size());
+  
   /// NOW FOR DIMUON EVENTS CHECK ALSO THE PER-EVENT-EFFICIENCY
-  if (L2FoundGens.size()==2){
-    if (debuglevel_ > 1) std::cout << "Yes there are 2 L2FoundGens: " << L2FoundGens.size() << std::endl;
-    for (unsigned int t(0); t<L2FoundGens.size(); ++t){
-      const reco::GenParticle* gen = L2FoundGens.at(t);
-      hists_["eff2L3L2Eta_den"]->Fill(gen->eta());
-      hists_["eff2L3L2Phi_den"]->Fill(gen->phi());
-      hists_["eff2L3L2Pt_den"] ->Fill(gen->pt() );
+  if (L2Found.size()==2){
+    for (unsigned int t(0); t<L2Found.size(); ++t){
+      const reco::Muon* mu = L2Found.at(t);
+      hists_["eff2L3L2Eta_den"]->Fill(mu->eta());
+      hists_["eff2L3L2Phi_den"]->Fill(mu->phi());
+      hists_["eff2L3L2Pt_den"] ->Fill(mu->pt() );
       hists_["eff2L3L2NPU_den"]->Fill(nbMCvtx);
-      if (L3FoundGens.size()==2){
-	hists_["eff2L3L2Eta_num"]->Fill(gen->eta());
-	hists_["eff2L3L2Phi_num"]->Fill(gen->phi());
-	hists_["eff2L3L2Pt_num"] ->Fill(gen->pt() );
+      hists_["eff2L3L2NPV_den"]->Fill(nGoodVtx);
+      if (L3Found.size()==2){
+	hists_["eff2L3L2Eta_num"]->Fill(mu->eta());
+	hists_["eff2L3L2Phi_num"]->Fill(mu->phi());
+	hists_["eff2L3L2Pt_num"] ->Fill(mu->pt() );
 	hists_["eff2L3L2NPU_num"]->Fill(nbMCvtx);
+	hists_["eff2L3L2NPV_num"]->Fill(nGoodVtx);
       }
     }
   }
-  if (L1FoundGens.size()==2){
-    if (debuglevel_ > 1)  std::cout << "Yes there are 2 L1FoundGens: " << L1FoundGens.size() << std::endl;
-    for (unsigned int t(0); t<L1FoundGens.size();++t){
-      const reco::GenParticle* gen = L1FoundGens.at(t);
-      hists_["eff2L3L1Eta_den"]->Fill(gen->eta());
-      hists_["eff2L3L1Phi_den"]->Fill(gen->phi());
-      hists_["eff2L3L1Pt_den"] ->Fill(gen->pt() );
+  if (L1Found.size()==2){
+    for (unsigned int t(0); t<L1Found.size();++t){
+      const reco::Muon* mu = L1Found.at(t);
+      hists_["eff2L3L1Eta_den"]->Fill(mu->eta());
+      hists_["eff2L3L1Phi_den"]->Fill(mu->phi());
+      hists_["eff2L3L1Pt_den"] ->Fill(mu->pt() );
       hists_["eff2L3L1NPU_den"]->Fill(nbMCvtx);
-      if (L3FoundGens.size()==2){
-	hists_["eff2L3L1Eta_num"]->Fill(gen->eta());
-	hists_["eff2L3L1Phi_num"]->Fill(gen->phi());
-	hists_["eff2L3L1Pt_num"] ->Fill(gen->pt() );
+      hists_["eff2L3L1NPV_den"]->Fill(nGoodVtx);
+      if (L3Found.size()==2){
+	hists_["eff2L3L1Eta_num"]->Fill(mu->eta());
+	hists_["eff2L3L1Phi_num"]->Fill(mu->phi());
+	hists_["eff2L3L1Pt_num"] ->Fill(mu->pt() );
 	hists_["eff2L3L1NPU_num"]->Fill(nbMCvtx);
+	hists_["eff2L3L1NPV_num"]->Fill(nGoodVtx);
       }
     }
   }
-
-  if (debuglevel_ > 1) std::cout << "============================================================" << std::endl
-				 << "============================================================" << std::endl;
-
   
   try {
     /// NOW do other stuff::
@@ -735,55 +719,13 @@ MuonHLTDebugger::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup
 	  hists_["hlt_noL3_DeltaPhi"]        ->Fill(t->phi()-l2mu->phi());
 	  hists_["hlt_noL3_DeltaPt"]         ->Fill((t->pt()-l2mu->pt())/l2mu->pt());
 	}
-	/*
-	edm::Handle<reco::MuonTrackLinksCollection> IOlink;
-	iEvent.getByToken(theIOLinksToken_, IOlink);
-	
-	for(reco::RecoChargedCandidateCollection::const_iterator cand=l3Muons->begin(); cand!=l3Muons->end(); cand++){
-	  for(unsigned int l(0); l <IOlink->size(); ++l){
-	    const reco::MuonTrackLinks* link = &IOlink->at(l);
-	    bool useThisLink=false;
-	    reco::TrackRef tk = cand->track();
-	    reco::TrackRef trkTrack = link->trackerTrack();
-	    
-	    // Using the same method that was used to create the links
-	    // ToDo: there should be a better way than dR,dPt matching
-	    const reco::Track& globalTrack = *link->globalTrack();
-	    float dR2 = deltaR2(tk->eta(),tk->phi(),globalTrack.eta(),globalTrack.phi());
-	    float dPt = std::abs(tk->pt() - globalTrack.pt())/tk->pt();
-	    	    
-	    if (dR2 < 0.02*0.02 and dPt < 0.001) {
-	      useThisLink=true;
-	    }
-	    
-	    //	    if (useThisLink) {
-	    //	      const reco::TrackRef staTrack = link->standAloneTrack();
-//	      cout << "Run:Event " << iEvent.id().run() << ":" << iEvent.id().event() << endl;
-//	      cout << "      pT: " << cand->pt()  << " , eta: " << cand->eta()  << endl; 
-//	      cout << "      nHits: " << tk->numberOfValidHits() << " , NMuonHits: " << tk->hitPattern().numberOfValidMuonHits() << endl;
-//	      cout << "      dr: " << std::abs( (- (cand->vx()-beamSpot.x0()) * cand->py() + (cand->vy()-beamSpot.y0()) * cand->px() ) / cand->pt() ) 
-		   << " , dz " << std::abs((cand->vz()-beamSpot.z0()) - ((cand->vx()-beamSpot.x0())*cand->px()+(cand->vy()-beamSpot.y0())*cand->py())/cand->pt() * cand->pz()/cand->pt()) 
-		   << " , dxy " << tk->dxy(beamSpot.position()) << " , dxyError " << tk->dxyError() 
-		   << " , dxy(sig) " << std::abs(tk->dxy(beamSpot.position())/tk->dxyError()) << endl;
-	    } //end of useThisLink
-	  } //end of muons in links collection
-	} //end of RecoCand collection
-	*/
       } // NO L3 Objects
     } //L2Objects
   }
   catch (...) {
   }
   /// DEBUGGING THE OUTSIDE-IN COMPONENT 
-  //  try {
-//    edm::ESHandle<TransientTrackBuilder> theB;
-//    iSetup.get<TransientTrackRecord>().get("TransientTrackBuilder",theB);
-//	  
-//    //get the TransienTrackingRecHitBuilder needed for extracting the global position of the hits in the pixel
-//    //    edm::ESHandle<TransientTrackingRecHitBuilder> theTrackerRecHitBuilder;
-//    iSetup.get<TransientRecHitRecord>().get(ttrhbuilder_,theTrackerRecHitBuilder);
-
-
+  try {
     if (L2MuonTrigObjects.size() > 0) {
       if (L3MuonTrigObjects.size() > 0) {
 	edm::Handle<TrajectorySeedCollection> hltL3TrajSeedOI;
@@ -796,24 +738,9 @@ MuonHLTDebugger::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup
 	edm::Handle<reco::TrackExtraCollection> TrackCollection;
 	iEvent.getByToken(TrackCollectionToken_, TrackCollection);
 	
-
-	//	for (reco::MuonCollection::const_iterator recoMu = muons->begin(); recoMu!=muons->end(); ++recoMu){
-	//	  if (not (*trackRef).isValid()) continue;
-	//	  if (!muons->isValid()) continue;
-	//	reco::TrackRef trackRef = recoMu->innerTrack();
-	//const reco::Track& track = *trackRef;
-	  //	  
-	  //	  const reco::TrackExtraRef trackExtraRef = (*trackRef).extra();
-	  //	  if (not (*trackExtraRef).isValid()) continue;
-	  //	  const reco::TrackExtra& track = *trackExtraRef;
 	  
 	for (reco::TrackExtraCollection::const_iterator trk = TrackCollection->begin(); trk!=TrackCollection->end(); ++trk){
 	  reco::TrackExtra track = (*trk);
-
-//	  for(reco::MuonCollection::const_iterator mu=muons->begin(); mu!=muons->end(); ++mu1) {
-//	  reco::TransientTrack TransTrack;
-//	  TransTrack = theB->build(mu1->innerTrack());	  
-//	  TrajectoryStateOnSurface initialTSOS = TransTrack.innermostMeasurementState();
 
 	  for(TrajectorySeedCollection::const_iterator seed = hltL3TrajSeedOI->begin(); seed != hltL3TrajSeedOI->end(); ++seed){
 	    TrajectorySeed::range seedHits = seed->recHits();
@@ -902,9 +829,9 @@ MuonHLTDebugger::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup
 	} // iterator  over muon collection 
       } // L3TriggerObject > 0
     } // L2TriggerObject > 0
-//  }
-//  catch (...) {
-//  }
+  }
+  catch (...) {
+  }
 }
  
 
@@ -967,17 +894,25 @@ MuonHLTDebugger::beginJob()
   hists_["effL3Phi_num" ] = outfile_->make<TH1F>("effL3Phi_num", "Efficiency;#phi",  15, -3.3, 3.3);
   hists_["effL3Pt_num"  ] = outfile_->make<TH1F>("effL3Pt_num",  "Efficiency;p_{T}", 11,  pt_bins );
   hists_["effL3NPU_num" ] = outfile_->make<TH1F>("effL3NPU_num", "Efficiency;NPU",   75,  0,   75.);
+  hists_["effL3NPV_num" ] = outfile_->make<TH1F>("effL3NPV_num", "Efficiency;NPV",   75,  0,   75.);
+  hists_["effL3dxy_num" ] = outfile_->make<TH1F>("effL3dxy_num", "Efficiency;dxy",   50,  0., 1.);
+  hists_["effL3dz_num" ]  = outfile_->make<TH1F>("effL3dz_num" , "Efficiency;dz" ,   50,  0., 10.);
 
   hists_["effL3L2Eta_den" ] = outfile_->make<TH1F>("effL3L2Eta_den", "Efficiency;#eta",  15, eta_bins );
   hists_["effL3L2Phi_den" ] = outfile_->make<TH1F>("effL3L2Phi_den", "Efficiency;#phi",  15, -3.3, 3.3);
   hists_["effL3L2Pt_den"  ] = outfile_->make<TH1F>("effL3L2Pt_den",  "Efficiency;p_{T}", 11,  pt_bins );
   hists_["effL3L2NPU_den" ] = outfile_->make<TH1F>("effL3L2NPU_den", "Efficiency;NPU",   75,  0,   75.);
+  hists_["effL3L2NPV_den" ] = outfile_->make<TH1F>("effL3L2NPV_den", "Efficiency;NPV",   75,  0,   75.);
+  hists_["effL3L2dxy_den" ] = outfile_->make<TH1F>("effL3L2dxy_den", "Efficiency;dxy",   50,  0., 1.);
+  hists_["effL3L2dz_den" ]  = outfile_->make<TH1F>("effL3L2dz_den" , "Efficiency;dz" ,   50,  0., 10.);
+  
   //  hists_["effL3L2NVtx_den"] = outfile_->make<TH1F>("effL3L2NVtx_den","Efficiency;NVtx",  60,  0,   60.);    
 
   hists_["effL3L1Eta_den" ] = outfile_->make<TH1F>("effL3L1Eta_den", "Efficiency;#eta",  15, eta_bins );
   hists_["effL3L1Phi_den" ] = outfile_->make<TH1F>("effL3L1Phi_den", "Efficiency;#phi",  15, -3.3, 3.3);
   hists_["effL3L1Pt_den"  ] = outfile_->make<TH1F>("effL3L1Pt_den",  "Efficiency;p_{T}", 11,  pt_bins );
   hists_["effL3L1NPU_den" ] = outfile_->make<TH1F>("effL3L1NPU_den", "Efficiency;NPU",   75,  0,   75.);
+  hists_["effL3L1NPV_den" ] = outfile_->make<TH1F>("effL3L1NPV_den", "Efficiency;NPV",   75,  0,   75.);
   //  hists_["effL3L1NVtx_den"] = outfile_->make<TH1F>("effL3L1NVtx_den","Efficiency;NVtx",  60,  0,   60.);    
 
   //// DOUBLE EFFICIENCY
@@ -985,24 +920,28 @@ MuonHLTDebugger::beginJob()
   hists_["eff2L3L2Phi_num" ] = outfile_->make<TH1F>("eff2L3L2Phi_num", "Efficiency;#phi",  15, -3.3, 3.3);
   hists_["eff2L3L2Pt_num"  ] = outfile_->make<TH1F>("eff2L3L2Pt_num",  "Efficiency;p_{T}", 11,  pt_bins );
   hists_["eff2L3L2NPU_num" ] = outfile_->make<TH1F>("eff2L3L2NPU_num", "Efficiency;NPU",   75,  0,   75.);
+  hists_["eff2L3L2NPV_num" ] = outfile_->make<TH1F>("eff2L3L2NPV_num", "Efficiency;NPV",   75,  0,   75.);
   //  hists_["eff2L3L2NVtx_num"] = outfile_->make<TH1F>("eff2L3L2NVtx_num","Efficiency;NVtx",  60,  0,   60.);    
 
   hists_["eff2L3L1Eta_num" ] = outfile_->make<TH1F>("eff2L3L1Eta_num", "Efficiency;#eta",  15, eta_bins );
   hists_["eff2L3L1Phi_num" ] = outfile_->make<TH1F>("eff2L3L1Phi_num", "Efficiency;#phi",  15, -3.3, 3.3);
   hists_["eff2L3L1Pt_num"  ] = outfile_->make<TH1F>("eff2L3L1Pt_num",  "Efficiency;p_{T}", 11,  pt_bins );
   hists_["eff2L3L1NPU_num" ] = outfile_->make<TH1F>("eff2L3L1NPU_num", "Efficiency;NPU",   75,  0,   75.);
+  hists_["eff2L3L1NPV_num" ] = outfile_->make<TH1F>("eff2L3L1NPV_num", "Efficiency;NPV",   75,  0,   75.);
   //  hists_["eff2L3NVtx_num"] = outfile_->make<TH1F>("eff2L3NVtx_num","Efficiency;NVtx",  60,  0,   60.);    
 
   hists_["eff2L3L2Eta_den" ] = outfile_->make<TH1F>("eff2L3L2Eta_den", "Efficiency;#eta",  15, eta_bins );
   hists_["eff2L3L2Phi_den" ] = outfile_->make<TH1F>("eff2L3L2Phi_den", "Efficiency;#phi",  15, -3.3, 3.3);
   hists_["eff2L3L2Pt_den"  ] = outfile_->make<TH1F>("eff2L3L2Pt_den",  "Efficiency;p_{T}", 11,  pt_bins );
   hists_["eff2L3L2NPU_den" ] = outfile_->make<TH1F>("eff2L3L2NPU_den", "Efficiency;NPU",   75,  0,   75.);
+  hists_["eff2L3L2NPV_den" ] = outfile_->make<TH1F>("eff2L3L2NPV_den", "Efficiency;NPV",   75,  0,   75.);
   //  hists_["eff2L3L2NVtx_den"] = outfile_->make<TH1F>("eff2L3L2NVtx_den","Efficiency;NVtx",  60,  0,   60.);    
 
   hists_["eff2L3L1Eta_den" ] = outfile_->make<TH1F>("eff2L3L1Eta_den", "Efficiency;#eta",  15, eta_bins );
   hists_["eff2L3L1Phi_den" ] = outfile_->make<TH1F>("eff2L3L1Phi_den", "Efficiency;#phi",  15, -3.3, 3.3);
   hists_["eff2L3L1Pt_den"  ] = outfile_->make<TH1F>("eff2L3L1Pt_den",  "Efficiency;p_{T}", 11,  pt_bins );
   hists_["eff2L3L1NPU_den" ] = outfile_->make<TH1F>("eff2L3L1NPU_den", "Efficiency;NPU",   75,  0,   75.);
+  hists_["eff2L3L1NPV_den" ] = outfile_->make<TH1F>("eff2L3L1NPV_den", "Efficiency;NPV",   75,  0,   75.);
   //  hists_["eff2L3L1NVtx_den"] = outfile_->make<TH1F>("eff2L3L1NVtx_den","Efficiency;NVtx",  60,  0,   60.);    
 
   //// COUNTERS
@@ -1010,9 +949,10 @@ MuonHLTDebugger::beginJob()
   hists_["hlt_NumL2Match" ] = outfile_->make<TH1F>("hlt_NumL2Match","Number of L2 Gen Matched", 5, -0.5, 4.5);
   hists_["hlt_NumL3Match" ] = outfile_->make<TH1F>("hlt_NumL3Match","Number of L3 Gen Matched", 5, -0.5, 4.5);
 
+  hists_["hlt_NumL1" ] = outfile_->make<TH1F>("hlt_NumL1","Number of L1 Found", 5, -0.5, 4.5);
   hists_["hlt_NumL2" ] = outfile_->make<TH1F>("hlt_NumL2","Number of L2 Found", 5, -0.5, 4.5);
   hists_["hlt_NumL3" ] = outfile_->make<TH1F>("hlt_NumL3","Number of L3 Found", 5, -0.5, 4.5);
-  hists_["hlt_NumNoL3" ] = outfile_->make<TH1F>("hlt_NumNoL3","Number of L3 Not Found", 5, -0.5, 4.5);
+  //  hists_["hlt_NumNoL3" ] = outfile_->make<TH1F>("hlt_NumNoL3","Number of L3 Not Found", 5, -0.5, 4.5);
 
   /// OTHER CHECKS:   
   hists_["hlt_numSeeds"] = outfile_->make<TH1F>("hlt_numSeeds","Number of Seeds (Iter0+Iter2)", 50, -0.5, 49.5);  

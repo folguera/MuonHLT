@@ -5970,7 +5970,7 @@ process.hltL3fL1sMu22Or25L1f0L2f10QL3Filtered50Q = cms.EDFilter( "HLTMuonL3PreFi
     MinDr = cms.double( -1.0 ),
     BeamSpotTag = cms.InputTag( "hltOnlineBeamSpot" ),
     InputLinks = cms.InputTag( "" ),
-    MinPt = cms.double( 50.0 )
+    MinPt = cms.double( 20.0 )
 )
 process.hltBoolEnd = cms.EDFilter( "HLTBool",
     result = cms.bool( True )
@@ -6009,7 +6009,7 @@ process.HLTSchedule = cms.Schedule( *(process.HLTriggerFirstPath, process.HLT_Mu
 
 process.source = cms.Source( "PoolSource",
     fileNames = cms.untracked.vstring(
-        'file:RelVal_Raw_GRun_DATA.root',
+        '/home/sfolguer/MUO/CMSSW_8_0_22/src//02E8915A-1464-E611-919A-FA163E3EA2F0.root',
     ),
     inputCommands = cms.untracked.vstring(
         'keep *'
@@ -6018,35 +6018,35 @@ process.source = cms.Source( "PoolSource",
 
 # adapt HLT modules to the correct process name
 if 'hltTrigReport' in process.__dict__:
-    process.hltTrigReport.HLTriggerResults                    = cms.InputTag( 'TriggerResults', '', 'SFHLT' )
+    process.hltTrigReport.HLTriggerResults                    = cms.InputTag( 'TriggerResults', '', 'HLTX' )
 
 if 'hltPreExpressCosmicsOutputSmart' in process.__dict__:
-    process.hltPreExpressCosmicsOutputSmart.hltResults = cms.InputTag( 'TriggerResults', '', 'SFHLT' )
+    process.hltPreExpressCosmicsOutputSmart.hltResults = cms.InputTag( 'TriggerResults', '', 'HLTX' )
 
 if 'hltPreExpressOutputSmart' in process.__dict__:
-    process.hltPreExpressOutputSmart.hltResults        = cms.InputTag( 'TriggerResults', '', 'SFHLT' )
+    process.hltPreExpressOutputSmart.hltResults        = cms.InputTag( 'TriggerResults', '', 'HLTX' )
 
 if 'hltPreDQMForHIOutputSmart' in process.__dict__:
-    process.hltPreDQMForHIOutputSmart.hltResults       = cms.InputTag( 'TriggerResults', '', 'SFHLT' )
+    process.hltPreDQMForHIOutputSmart.hltResults       = cms.InputTag( 'TriggerResults', '', 'HLTX' )
 
 if 'hltPreDQMForPPOutputSmart' in process.__dict__:
-    process.hltPreDQMForPPOutputSmart.hltResults       = cms.InputTag( 'TriggerResults', '', 'SFHLT' )
+    process.hltPreDQMForPPOutputSmart.hltResults       = cms.InputTag( 'TriggerResults', '', 'HLTX' )
 
 if 'hltPreHLTDQMResultsOutputSmart' in process.__dict__:
-    process.hltPreHLTDQMResultsOutputSmart.hltResults  = cms.InputTag( 'TriggerResults', '', 'SFHLT' )
+    process.hltPreHLTDQMResultsOutputSmart.hltResults  = cms.InputTag( 'TriggerResults', '', 'HLTX' )
 
 if 'hltPreHLTDQMOutputSmart' in process.__dict__:
-    process.hltPreHLTDQMOutputSmart.hltResults         = cms.InputTag( 'TriggerResults', '', 'SFHLT' )
+    process.hltPreHLTDQMOutputSmart.hltResults         = cms.InputTag( 'TriggerResults', '', 'HLTX' )
 
 if 'hltPreHLTMONOutputSmart' in process.__dict__:
-    process.hltPreHLTMONOutputSmart.hltResults         = cms.InputTag( 'TriggerResults', '', 'SFHLT' )
+    process.hltPreHLTMONOutputSmart.hltResults         = cms.InputTag( 'TriggerResults', '', 'HLTX' )
 
 if 'hltDQMHLTScalers' in process.__dict__:
-    process.hltDQMHLTScalers.triggerResults                   = cms.InputTag( 'TriggerResults', '', 'SFHLT' )
-    process.hltDQMHLTScalers.processname                      = 'SFHLT'
+    process.hltDQMHLTScalers.triggerResults                   = cms.InputTag( 'TriggerResults', '', 'HLTX' )
+    process.hltDQMHLTScalers.processname                      = 'HLTX'
 
 if 'hltDQML1SeedLogicScalers' in process.__dict__:
-    process.hltDQML1SeedLogicScalers.processname              = 'SFHLT'
+    process.hltDQML1SeedLogicScalers.processname              = 'HLTX'
 
 # limit the number of events to be processed
 process.maxEvents = cms.untracked.PSet(
@@ -6056,7 +6056,7 @@ process.maxEvents = cms.untracked.PSet(
 # enable TrigReport, TimeReport and MultiThreading
 process.options = cms.untracked.PSet(
     wantSummary = cms.untracked.bool( True ),
-    numberOfThreads = cms.untracked.uint32( 4 ),
+    numberOfThreads = cms.untracked.uint32( 8 ),
     numberOfStreams = cms.untracked.uint32( 0 ),
     sizeOfStackForThreadsInKB = cms.untracked.uint32( 10*1024 )
 )
@@ -6082,7 +6082,7 @@ process.dqmOutput = cms.OutputModule("DQMRootOutputModule",
     fileName = cms.untracked.string("DQMIO.root")
 )
 
-process.DQMOutput = cms.EndPath( process.dqmOutput )
+#process.DQMOutput = cms.EndPath( process.dqmOutput )
 
 # add specific customizations
 _customInfo = {}
@@ -6093,13 +6093,12 @@ _customInfo['globalTags'][False] = "auto:run2_mc_GRun"
 _customInfo['inputFiles']={}
 _customInfo['inputFiles'][True]  = "file:RelVal_Raw_GRun_DATA.root"
 _customInfo['inputFiles'][False] = "file:RelVal_Raw_GRun_MC.root"
-_customInfo['maxEvents' ]=  100
+_customInfo['maxEvents' ]=  -1
 _customInfo['globalTag' ]= "auto:run2_hlt_GRun"
 _customInfo['inputFile' ]=  [
-    'file:/home/sfolguer/MUO/CMSSW_8_0_22/src//02E8915A-1464-E611-919A-FA163E3EA2F0.root'
+    'file:/home/sfolguer/MUO/CMSSW_8_0_22/src/02E8915A-1464-E611-919A-FA163E3EA2F0.root'
     ]
 _customInfo['realData'  ]=  True
-
 from HLTrigger.Configuration.customizeHLTforALL import customizeHLTforAll
 process = customizeHLTforAll(process,"GRun",_customInfo)
 
@@ -6112,22 +6111,25 @@ process = addL3ToHLT(process)
 #from RecoMuon.TrackingTools.MuonServiceProxy_cff import *
 
 process.muonDebugger =cms.EDAnalyzer("MuonHLTDebugger",
+#                                     MuonServiceProxy,
                                      triggerResults  = cms.untracked.InputTag("TriggerResults::SFHLT"),
                                      triggerSummary  = cms.untracked.InputTag("hltTriggerSummaryAOD::SFHLT"),
                                      L3Candidates    = cms.untracked.InputTag("hltNewL3MuonCandidates"), 
                                      L2Candidates    = cms.untracked.InputTag("hltL2MuonCandidates"), 
                                      L1Candidates    = cms.untracked.InputTag("hltGmtStage2Digis", "Muon"), 
                                      genParticlesTag = cms.untracked.InputTag("genParticles"),
+                                     muonTag         = cms.untracked.InputTag("muons"),
                                      triggerProcess  = cms.string("SFHLT"),
                                      triggerName     = cms.string("HLT_Mu50_v5"),
                                      l1filterLabel   = cms.string("hltL1fL1sMu22Or25L1Filtered0"),
                                      l2filterLabel   = cms.string("hltL2fL1sMu22Or25L1f0L2Filtered10Q"),
                                      l3filterLabel   = cms.string("hltL3fL1sMu22Or25L1f0L2f10QL3Filtered50Q"),
-                                     debuglevel      = cms.untracked.uint32(0)
+                                     debuglevel      = cms.untracked.uint32(0),
+                                     isMC            = cms.untracked.bool(False)
                                      )   
 
 process.TFileService = cms.Service("TFileService",
-                                   fileName = cms.string("muonDebugger_OI_DATA.root"),
+                                   fileName = cms.string("muonDebugger_Data_OI.root"),
                                    closeFileFast = cms.untracked.bool(False)
                                    )
 
