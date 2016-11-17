@@ -185,7 +185,7 @@ private:
 //
 double pt_bins[12]  = { 20 ,  24 ,  27 ,   30,   35,   40,   45,   50,  60, 70 ,  90, 150 };
 double eta_bins[16] = {-2.4, -2.1, -1.6, -1.2, -1.04, -0.9, -0.3, -0.2,  0.2, 0.3, 0.9, 1.04, 1.2, 1.6, 2.1, 2.4};
-
+double phi_bins[14] = {-M_PI, -M_PI*(11/12.), -M_PI*(9/12.), -M_PI*(7/12.), -M_PI*(5/12.), -M_PI*(3/12.), -M_PI*(1/12.), M_PI*(1/12.), M_PI*(3/12.), M_PI*(5/12.), M_PI*(7/12.), M_PI*(9/12.), M_PI*(11/12.), M_PI};
 using namespace edm;
 using namespace std;
 
@@ -496,7 +496,7 @@ MuonHLTDebugger::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup
       hists_["hltL2_pt"]    ->Fill(l2mu->pt());
       hists_["hltL2_eta"]   ->Fill(l2mu->eta());
       hists_["hltL2_phi"]   ->Fill(l2mu->phi());
-      if (deltaR((*recoMu),*l2mu)<0.3 && !foundL2){
+      //      if (deltaR((*recoMu),*l2mu)<0.3 && !foundL2){
       	if (debuglevel_ > 1)   std::cout << "\t\tL2 found: pt: " << l2mu->pt() << " eta: " << l2mu->eta() << std::endl;
 	hists_["effL3L2Eta_den" ] ->Fill(recoMu->eta());
 	hists_["effL3L2Phi_den" ] ->Fill(recoMu->phi());
@@ -507,7 +507,7 @@ MuonHLTDebugger::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup
 	hists_["effL3L2dz_den" ]  ->Fill(std::abs(recoMu->muonBestTrack()->dz(pv.position())));
 	foundL2=true;
 	L2Found.push_back(&(*recoMu));
-      }
+	//      }
     }
         
     if (!foundL2) continue;  // do not continue if we don't find any L2 
@@ -525,7 +525,7 @@ MuonHLTDebugger::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup
       hists_["hltL3_resPhi"]->Fill(l3mu->phi()-recoMu->phi());
       hists_["hltL3_resPt"] ->Fill(l3mu->pt() -recoMu->pt() );
       if (debuglevel_ > 1)  std::cout << "\tL3["<<t<<"]: deltaR(*recoMu,*l3mu): " << deltaR(*recoMu,*l3mu) << std::endl;
-      if (deltaR(*recoMu,*l3mu)<0.01 && !foundL3){
+      //      if (deltaR(*recoMu,*l3mu)<0.01 && !foundL3){
 	if (std::find(foundL3Trig.begin(), foundL3Trig.end(), l3mu)!=foundL3Trig.end()) std::cout << "THIS L3 WAS ALREADY FOUND!" << std::endl;
 	foundL3Trig.push_back(l3mu);
 	if (debuglevel_ > 1)  std::cout << "\t\tL3 found: pt: " << l3mu->pt() << " eta: " << l3mu->eta() << std::endl;
@@ -537,10 +537,10 @@ MuonHLTDebugger::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup
 	hists_["effL3dxy_num" ] ->Fill(std::abs(recoMu->muonBestTrack()->dxy(pv.position())));
 	hists_["effL3dz_num" ]  ->Fill(std::abs(recoMu->muonBestTrack()->dz(pv.position())));
 	L3Found.push_back(&(*recoMu));
-      }
-      else {
-	++numL3NotFound;
-      }
+//      }
+//      else {
+//	++numL3NotFound;
+//      }
     }
   }
 
@@ -731,7 +731,10 @@ MuonHLTDebugger::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup
 	edm::Handle<TrajectorySeedCollection> hltL3TrajSeedOI;
 	iEvent.getByToken(theSeedsOIToken_, hltL3TrajSeedOI);
 	hists_["hlt_OI_NumSeeds"]->Fill(hltL3TrajSeedOI->size());
-	
+	for (unsigned int t(0); t < L3MuonTrigObjects.size(); ++t){
+	  trigger::TriggerObject* l3mu = &L3MuonTrigObjects.at(t);
+	  hists_["hlt_OI_NumSeedsVsEta"]->Fill(l3mu->eta(),hltL3TrajSeedOI->size());
+	}
 	///	edm::Handle<std::vector<reco::Muon> > muons;
 	//	iEvent.getByToken(muonToken_, muons);
 	
@@ -846,7 +849,7 @@ MuonHLTDebugger::beginJob()
   // L1,L2,L3 values and efficiencies: 
   hists_["hltL1_pt"]     = outfile_->make<TH1F>("hltL1_pt",  "HLT (L1) p_{T}; p_{T} of L1 object", 11,  pt_bins );
   hists_["hltL1_eta"]    = outfile_->make<TH1F>("hltL1_eta", "HLT (L1) #eta; #eta of L1 object", 15, eta_bins );
-  hists_["hltL1_phi"]    = outfile_->make<TH1F>("hltL1_phi", "HLT (L1) #phi;#phi of L1 object", 15, -3.3, 3.3);
+  hists_["hltL1_phi"]    = outfile_->make<TH1F>("hltL1_phi", "HLT (L1) #phi;#phi of L1 object", 13, phi_bins);
   hists_["hltL1_DeltaR"] = outfile_->make<TH1F>("hltL1_DeltaR", "HLT (L1) #Delta R; #Delta wrt L1 object", 15, 0., 1.);
   hists_["hltL1p_resEta"] = outfile_->make<TH1F>("hltL1p_resEta", "L1 Resolution (+);#eta^{reco}-#eta^{HLT}",  100,  -0.1,   0.1);
   hists_["hltL1p_resPhi"] = outfile_->make<TH1F>("hltL1p_resPhi", "L1 Resolution (+);#phi^{reco}-#phi^{HLT}",  100,  -0.1,   0.1);
@@ -865,7 +868,7 @@ MuonHLTDebugger::beginJob()
 
   hists_["hltL2_pt"]            = outfile_->make<TH1F>("hltL2_pt",  "HLT (L2) p_{T}; p_{T} of L2 object", 11,  pt_bins );
   hists_["hltL2_eta"]           = outfile_->make<TH1F>("hltL2_eta", "HLT (L2) #eta; #eta of L2 object", 15, eta_bins );
-  hists_["hltL2_phi"]           = outfile_->make<TH1F>("hltL2_phi", "HLT (L2) #phi;#phi of L2 object", 15, -3.3, 3.3);
+  hists_["hltL2_phi"]           = outfile_->make<TH1F>("hltL2_phi", "HLT (L2) #phi;#phi of L2 object", 13, phi_bins);
   hists_["hltL2_DeltaR"]        = outfile_->make<TH1F>("hltL2_DeltaR", "HLT (L2) #Delta R; #Delta wrt L2 object", 15, 0., 1.);
   hists_["hltL2p_resEta"]        = outfile_->make<TH1F>("hltL2p_resEta", "L2 Resolution (+);#eta^{reco}-#eta^{HLT}",  50,  -0.05,   0.05);
   hists_["hltL2p_resPhi"]        = outfile_->make<TH1F>("hltL2p_resPhi", "L2 Resolution (+);#phi^{reco}-#phi^{HLT}",  50,  -0.05,   0.05);
@@ -884,14 +887,14 @@ MuonHLTDebugger::beginJob()
 
   hists_["hltL3_pt"]     = outfile_->make<TH1F>("hltL3_pt",  "HLT (L3) p_{T}; p_{T} of L3 object", 11,  pt_bins );
   hists_["hltL3_eta"]    = outfile_->make<TH1F>("hltL3_eta", "HLT (L3) #eta; #eta of L3 object", 15, eta_bins );
-  hists_["hltL3_phi"]    = outfile_->make<TH1F>("hltL3_phi", "HLT (L3) #phi;#phi of L3 object", 15, -3.3, 3.3);
+  hists_["hltL3_phi"]    = outfile_->make<TH1F>("hltL3_phi", "HLT (L3) #phi;#phi of L3 object", 13, phi_bins);
   hists_["hltL3_DeltaR"] = outfile_->make<TH1F>("hltL3_DeltaR", "HLT (L3) #Delta R; #Delta wrt L3 object", 15, 0., 1.);
   hists_["hltL3_resEta"] = outfile_->make<TH1F>("hltL3_resEta", "L3 Resolution;#eta^{reco}-#eta^{HLT}",  20,  -0.01,   0.01);
   hists_["hltL3_resPhi"] = outfile_->make<TH1F>("hltL3_resPhi", "L3 Resolution;#phi^{reco}-#phi^{HLT}",  20,  -0.01,   0.01);
   hists_["hltL3_resPt"]  = outfile_->make<TH1F>("hltL3_resPt",  "L3 Resolution;p_{T}^{reco}-p_{T}^{HLT}", 40,  -0.30,   0.30);
 
   hists_["effL3Eta_num" ] = outfile_->make<TH1F>("effL3Eta_num", "Efficiency;#eta",  15, eta_bins );
-  hists_["effL3Phi_num" ] = outfile_->make<TH1F>("effL3Phi_num", "Efficiency;#phi",  15, -3.3, 3.3);
+  hists_["effL3Phi_num" ] = outfile_->make<TH1F>("effL3Phi_num", "Efficiency;#phi",  13, phi_bins);
   hists_["effL3Pt_num"  ] = outfile_->make<TH1F>("effL3Pt_num",  "Efficiency;p_{T}", 11,  pt_bins );
   hists_["effL3NPU_num" ] = outfile_->make<TH1F>("effL3NPU_num", "Efficiency;NPU",   75,  0,   75.);
   hists_["effL3NPV_num" ] = outfile_->make<TH1F>("effL3NPV_num", "Efficiency;NPV",   75,  0,   75.);
@@ -899,7 +902,7 @@ MuonHLTDebugger::beginJob()
   hists_["effL3dz_num" ]  = outfile_->make<TH1F>("effL3dz_num" , "Efficiency;dz" ,   50,  0., 10.);
 
   hists_["effL3L2Eta_den" ] = outfile_->make<TH1F>("effL3L2Eta_den", "Efficiency;#eta",  15, eta_bins );
-  hists_["effL3L2Phi_den" ] = outfile_->make<TH1F>("effL3L2Phi_den", "Efficiency;#phi",  15, -3.3, 3.3);
+  hists_["effL3L2Phi_den" ] = outfile_->make<TH1F>("effL3L2Phi_den", "Efficiency;#phi",  13, phi_bins);
   hists_["effL3L2Pt_den"  ] = outfile_->make<TH1F>("effL3L2Pt_den",  "Efficiency;p_{T}", 11,  pt_bins );
   hists_["effL3L2NPU_den" ] = outfile_->make<TH1F>("effL3L2NPU_den", "Efficiency;NPU",   75,  0,   75.);
   hists_["effL3L2NPV_den" ] = outfile_->make<TH1F>("effL3L2NPV_den", "Efficiency;NPV",   75,  0,   75.);
@@ -909,7 +912,7 @@ MuonHLTDebugger::beginJob()
   //  hists_["effL3L2NVtx_den"] = outfile_->make<TH1F>("effL3L2NVtx_den","Efficiency;NVtx",  60,  0,   60.);    
 
   hists_["effL3L1Eta_den" ] = outfile_->make<TH1F>("effL3L1Eta_den", "Efficiency;#eta",  15, eta_bins );
-  hists_["effL3L1Phi_den" ] = outfile_->make<TH1F>("effL3L1Phi_den", "Efficiency;#phi",  15, -3.3, 3.3);
+  hists_["effL3L1Phi_den" ] = outfile_->make<TH1F>("effL3L1Phi_den", "Efficiency;#phi",  13, phi_bins);
   hists_["effL3L1Pt_den"  ] = outfile_->make<TH1F>("effL3L1Pt_den",  "Efficiency;p_{T}", 11,  pt_bins );
   hists_["effL3L1NPU_den" ] = outfile_->make<TH1F>("effL3L1NPU_den", "Efficiency;NPU",   75,  0,   75.);
   hists_["effL3L1NPV_den" ] = outfile_->make<TH1F>("effL3L1NPV_den", "Efficiency;NPV",   75,  0,   75.);
@@ -917,28 +920,28 @@ MuonHLTDebugger::beginJob()
 
   //// DOUBLE EFFICIENCY
   hists_["eff2L3L2Eta_num" ] = outfile_->make<TH1F>("eff2L3L2Eta_num", "Efficiency;#eta",  15, eta_bins );
-  hists_["eff2L3L2Phi_num" ] = outfile_->make<TH1F>("eff2L3L2Phi_num", "Efficiency;#phi",  15, -3.3, 3.3);
+  hists_["eff2L3L2Phi_num" ] = outfile_->make<TH1F>("eff2L3L2Phi_num", "Efficiency;#phi",  13, phi_bins);
   hists_["eff2L3L2Pt_num"  ] = outfile_->make<TH1F>("eff2L3L2Pt_num",  "Efficiency;p_{T}", 11,  pt_bins );
   hists_["eff2L3L2NPU_num" ] = outfile_->make<TH1F>("eff2L3L2NPU_num", "Efficiency;NPU",   75,  0,   75.);
   hists_["eff2L3L2NPV_num" ] = outfile_->make<TH1F>("eff2L3L2NPV_num", "Efficiency;NPV",   75,  0,   75.);
   //  hists_["eff2L3L2NVtx_num"] = outfile_->make<TH1F>("eff2L3L2NVtx_num","Efficiency;NVtx",  60,  0,   60.);    
 
   hists_["eff2L3L1Eta_num" ] = outfile_->make<TH1F>("eff2L3L1Eta_num", "Efficiency;#eta",  15, eta_bins );
-  hists_["eff2L3L1Phi_num" ] = outfile_->make<TH1F>("eff2L3L1Phi_num", "Efficiency;#phi",  15, -3.3, 3.3);
+  hists_["eff2L3L1Phi_num" ] = outfile_->make<TH1F>("eff2L3L1Phi_num", "Efficiency;#phi",  13, phi_bins);
   hists_["eff2L3L1Pt_num"  ] = outfile_->make<TH1F>("eff2L3L1Pt_num",  "Efficiency;p_{T}", 11,  pt_bins );
   hists_["eff2L3L1NPU_num" ] = outfile_->make<TH1F>("eff2L3L1NPU_num", "Efficiency;NPU",   75,  0,   75.);
   hists_["eff2L3L1NPV_num" ] = outfile_->make<TH1F>("eff2L3L1NPV_num", "Efficiency;NPV",   75,  0,   75.);
   //  hists_["eff2L3NVtx_num"] = outfile_->make<TH1F>("eff2L3NVtx_num","Efficiency;NVtx",  60,  0,   60.);    
 
   hists_["eff2L3L2Eta_den" ] = outfile_->make<TH1F>("eff2L3L2Eta_den", "Efficiency;#eta",  15, eta_bins );
-  hists_["eff2L3L2Phi_den" ] = outfile_->make<TH1F>("eff2L3L2Phi_den", "Efficiency;#phi",  15, -3.3, 3.3);
+  hists_["eff2L3L2Phi_den" ] = outfile_->make<TH1F>("eff2L3L2Phi_den", "Efficiency;#phi",  13, phi_bins);
   hists_["eff2L3L2Pt_den"  ] = outfile_->make<TH1F>("eff2L3L2Pt_den",  "Efficiency;p_{T}", 11,  pt_bins );
   hists_["eff2L3L2NPU_den" ] = outfile_->make<TH1F>("eff2L3L2NPU_den", "Efficiency;NPU",   75,  0,   75.);
   hists_["eff2L3L2NPV_den" ] = outfile_->make<TH1F>("eff2L3L2NPV_den", "Efficiency;NPV",   75,  0,   75.);
   //  hists_["eff2L3L2NVtx_den"] = outfile_->make<TH1F>("eff2L3L2NVtx_den","Efficiency;NVtx",  60,  0,   60.);    
 
   hists_["eff2L3L1Eta_den" ] = outfile_->make<TH1F>("eff2L3L1Eta_den", "Efficiency;#eta",  15, eta_bins );
-  hists_["eff2L3L1Phi_den" ] = outfile_->make<TH1F>("eff2L3L1Phi_den", "Efficiency;#phi",  15, -3.3, 3.3);
+  hists_["eff2L3L1Phi_den" ] = outfile_->make<TH1F>("eff2L3L1Phi_den", "Efficiency;#phi",  13, phi_bins);
   hists_["eff2L3L1Pt_den"  ] = outfile_->make<TH1F>("eff2L3L1Pt_den",  "Efficiency;p_{T}", 11,  pt_bins );
   hists_["eff2L3L1NPU_den" ] = outfile_->make<TH1F>("eff2L3L1NPU_den", "Efficiency;NPU",   75,  0,   75.);
   hists_["eff2L3L1NPV_den" ] = outfile_->make<TH1F>("eff2L3L1NPV_den", "Efficiency;NPV",   75,  0,   75.);
@@ -992,7 +995,7 @@ MuonHLTDebugger::beginJob()
   // other track properties...
   hists_["hlt_noL3_trackpt"]       = outfile_->make<TH1F>("hlt_noL3_trackpt"  ,"Track (L3) p_{T}; p_{T} of track",  11,  pt_bins );
   hists_["hlt_noL3_tracketa"]      = outfile_->make<TH1F>("hlt_noL3_tracketa" ,"Track (L3) #eta; #eta of L3 track",  15, eta_bins );
-  hists_["hlt_noL3_trackphi"]      = outfile_->make<TH1F>("hlt_noL3_trackphi" ,"Track (L3) #phi; #phi of L3 track",  15, -3.3, 3.3);
+  hists_["hlt_noL3_trackphi"]      = outfile_->make<TH1F>("hlt_noL3_trackphi" ,"Track (L3) #phi; #phi of L3 track",  13, phi_bins);
   hists_["hlt_noL3_DeltaR"]        = outfile_->make<TH1F>("hlt_noL3_DeltaR",   "Iter L3 #Delta R; #Delta R (tk,L2)", 15, 0., 1.);
   hists_["hlt_noL3_DeltaEta"]      = outfile_->make<TH1F>("hlt_noL3_DeltaEta", "Iter L3 #Delta #eta;#eta^{tk}-#eta^{L2}",  50,  -0.2,  0.2);
   hists_["hlt_noL3_DeltaPhi"]      = outfile_->make<TH1F>("hlt_noL3_DeltaPhi", "Iter L3 #Delta #phi;#phi^{tk}-#phi^{L2}",  50,  -0.2,  0.2);
@@ -1011,9 +1014,10 @@ MuonHLTDebugger::beginJob()
   hists_["hltL3mu_numValidMuonHits"] = outfile_->make<TH1F>("hltL3mu_numValidMuonHits", "N Valid Muon Hits L3 Muon", 70,  -0.5, 69.5 );
 
   hists_["hlt_OI_NumSeeds"]               = outfile_->make<TH1F>("hlt_OI_NumSeeds","Number of Seeds (OI)", 50, -0.5, 49.5);
+  hists_["hlt_OI_NumSeedsVsEta"]          = outfile_->make<TH2F>("hlt_OI_NumSeedsVsEta","Number of Seeds (OI) vs #eta", 15, eta_bins, 50, -0.5, 49.5);
   hists_["hlt_OI_NumberOfRecHitsPerSeed"] = outfile_->make<TH1F>("hlt_OI_NumberOfRecHitsPerSeed","Number Hits per Seed (OI)", 50, -0.5, 49.5);
   hists_["hlt_OI_hitPt"]                  = outfile_->make<TH1F>("hlt_OI_hitPt","Hit p_{T} (OI);p_{T} hit", 11,  pt_bins );
-  hists_["hlt_OI_hitPhi"]                 = outfile_->make<TH1F>("hlt_OI_hitPhi","Hit #phi (OI);#phi hit", 15, -3.3, 3.3);
+  hists_["hlt_OI_hitPhi"]                 = outfile_->make<TH1F>("hlt_OI_hitPhi","Hit #phi (OI);#phi hit", 13, phi_bins);
   hists_["hlt_OI_hitEta"]                 = outfile_->make<TH1F>("hlt_OI_hitEta","Hit #eta (OI);#eta hit", 15,  eta_bins ) ;
   hists_["hlt_OI_hitx"]                   = outfile_->make<TH1F>("hlt_OI_hitx","Hit x (OI);x hit", 200, -100, 100);
   hists_["hlt_OI_hity"]                   = outfile_->make<TH1F>("hlt_OI_hity","Hit y (OI);y hit", 200, -100, 100);

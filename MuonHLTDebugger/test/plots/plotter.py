@@ -103,7 +103,7 @@ def makeEfficiencies(inputfiles,num,den,title,legends,outname):
             ## SET CORRECT AXIS VALUES
             ROOT.gPad.Update()
             graph = eff.GetPaintedGraph()
-            graph.SetMinimum(0.8)
+            graph.SetMinimum(0.5)
             graph.SetMaximum(1.02)
             if "NPU" in outname: graph.GetXaxis().SetRangeUser(20,70)
             if "eff2" in num: graph.SetMinimum(0.6)
