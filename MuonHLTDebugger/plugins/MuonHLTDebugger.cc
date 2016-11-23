@@ -485,6 +485,17 @@ MuonHLTDebugger::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup
   for (size_t i = 0; i < targetMuons.size(); i++) {
     reco::Muon & recoMu = targetMuons[i];
     
+    if (matchesL2[i] < targetMuons.size()) { 
+      trigger::TriggerObject & l2mu = L2MuonTrigObjects[matchesL2[i]];      
+      hists_["hltL2_DeltaR"]->Fill(deltaR(recoMu,l2mu));
+      hists_["hltL2_pt"]    ->Fill(l2mu.pt());
+      hists_["hltL2_eta"]   ->Fill(l2mu.eta());
+      hists_["hltL2_phi"]   ->Fill(l2mu.phi());
+      hists_["hltL2_resEta"]->Fill( recoMu.eta()-l2mu.eta());
+      hists_["hltL2_resPhi"]->Fill( recoMu.phi()-l2mu.phi());
+      hists_["hltL2_resPt"] ->Fill((recoMu.pt() -l2mu.pt())/recoMu.pt());
+    }
+
     if (matchesL3[i] < targetMuons.size()) {
       trigger::TriggerObject & l3mu = L3MuonTrigObjects[matchesL3[i]];
       hists_["hltL3_DeltaR"]->Fill(deltaR(recoMu,l3mu));
@@ -919,10 +930,6 @@ MuonHLTDebugger::beginJob()
   hists_["hltL1p_resPt"]  = outfile_->make<TH1F>("hltL1p_resPt",  "L1 Resolution (+);p_{T}^{reco}-p_{T}^{HLT}", 60,  -0.30,   0.30);
   hists_["hltL1m_resPt"]  = outfile_->make<TH1F>("hltL1p_resPt",  "L1 Resolution (+);p_{T}^{reco}-p_{T}^{HLT}", 60,  -0.30,   0.30);
 
-  hists_["hltL2_pt"]            = outfile_->make<TH1F>("hltL2_pt",  "HLT (L2) p_{T}; p_{T} of L2 object", 11,  pt_bins );
-  hists_["hltL2_eta"]           = outfile_->make<TH1F>("hltL2_eta", "HLT (L2) #eta; #eta of L2 object", 15, eta_bins );
-  hists_["hltL2_phi"]           = outfile_->make<TH1F>("hltL2_phi", "HLT (L2) #phi;#phi of L2 object", 13, phi_bins);
-  hists_["hltL2_DeltaR"]        = outfile_->make<TH1F>("hltL2_DeltaR", "HLT (L2) #Delta R; #Delta wrt L2 object", 15, 0., 1.);
   hists_["hltL2p_resEta"]        = outfile_->make<TH1F>("hltL2p_resEta", "L2 Resolution (+);#eta^{reco}-#eta^{HLT}",  50,  -0.05,   0.05);
   hists_["hltL2p_resPhi"]        = outfile_->make<TH1F>("hltL2p_resPhi", "L2 Resolution (+);#phi^{reco}-#phi^{HLT}",  50,  -0.05,   0.05);
   hists_["hltL2m_resEta"]        = outfile_->make<TH1F>("hltL2m_resEta", "L2 Resolution (-);#eta^{reco}-#eta^{HLT}",  50,  -0.05,   0.05);
@@ -937,6 +944,14 @@ MuonHLTDebugger::beginJob()
   hists_["hltL2m_resPhi_endcap"] = outfile_->make<TH1F>("hltL2m_resPhi_endcap", "L2 Resolution (-);#phi^{HLT}/#phi^{gen}-1",  100,  -0.25,   0.25);
   hists_["hltL2p_resPt"]         = outfile_->make<TH1F>("hltL2p_resPt",         "L2 Resolution (+);p_{T}^{reco}-p_{T}^{HLT}", 60,  -0.30,   0.30);
   hists_["hltL2m_resPt"]         = outfile_->make<TH1F>("hltL2m_resPt",         "L2 Resolution (-);p_{T}^{reco}-p_{T}^{HLT}", 60,  -0.30,   0.30);
+
+  hists_["hltL2_pt"]            = outfile_->make<TH1F>("hltL2_pt",  "HLT (L2) p_{T}; p_{T} of L2 object", 11,  pt_bins );
+  hists_["hltL2_eta"]           = outfile_->make<TH1F>("hltL2_eta", "HLT (L2) #eta; #eta of L2 object", 15, eta_bins );
+  hists_["hltL2_phi"]           = outfile_->make<TH1F>("hltL2_phi", "HLT (L2) #phi;#phi of L2 object", 13, phi_bins);
+  hists_["hltL2_DeltaR"] = outfile_->make<TH1F>("hltL2_DeltaR", "HLT (L2) #Delta R; #Delta wrt L2 object", 15, 0., 1.);
+  hists_["hltL2_resEta"] = outfile_->make<TH1F>("hltL2_resEta", "L2 Resolution;#eta^{reco}-#eta^{HLT}",  20,  -0.05,   0.05);
+  hists_["hltL2_resPhi"] = outfile_->make<TH1F>("hltL2_resPhi", "L2 Resolution;#phi^{reco}-#phi^{HLT}",  20,  -0.05,   0.05);
+  hists_["hltL2_resPt"]  = outfile_->make<TH1F>("hltL2_resPt",  "L2 Resolution;p_{T}^{reco}-p_{T}^{HLT}", 40,  -0.5,   0.5);
 
   hists_["hltL3_pt"]     = outfile_->make<TH1F>("hltL3_pt",  "HLT (L3) p_{T}; p_{T} of L3 object", 11,  pt_bins );
   hists_["hltL3_eta"]    = outfile_->make<TH1F>("hltL3_eta", "HLT (L3) #eta; #eta of L3 object", 15, eta_bins );
