@@ -8,6 +8,8 @@ import math
 ROOT.gROOT.SetBatch(True)
 sys.argv = oldargv
 
+logY = False
+
 def makePlots(inputfiles,draw,title,legends,outname):
     ROOT.gStyle.SetOptStat(0)
     ROOT.gROOT.Reset()
@@ -23,10 +25,18 @@ def makePlots(inputfiles,draw,title,legends,outname):
     _hist.SetDirectory(0)
     ROOT.TH1.AddDirectory(ROOT.kFALSE)   
 
+    if logY: outname+="_log"
+    o = open(outname+'.txt', 'w')
     for i,f in enumerate(_files):
-        histname = "muonDebugger/%s" %(draw)
-        _hist = f.Get(histname).Clone()
-        _hists.append(_hist)
+        for k,p in enumerate(draw):
+            histname = "muonDebugger/%s" %(p)
+            _hist = f.Get(histname).Clone()
+            _hists.append(_hist)
+            if (len(draw)>1): 
+                o.write('%s \t %4.3f \t %4.3f\n' %(legends[k],_hist.GetMean(),_hist.GetRMS()))
+            else:
+                o.write('%s \t %4.3f \t %4.3f\n' %(legends[i],_hist.GetMean(),_hist.GetRMS()))
+    o.close()
 
     leg = ROOT.TLegend(0.70,0.65,0.90,0.80);
     leg.SetLineColor(0);
@@ -40,18 +50,24 @@ def makePlots(inputfiles,draw,title,legends,outname):
         hist.SetLineColor(k+1)
         hist.SetTitle(title)
         if k==0 :
-            hist.Draw()
+            if logY: c1.SetLogy()
+            if "Vs" in draw[0]:
+                hist.Draw("BOX")
+            else: 
+                hist.Draw()
         else:
             hist.Draw("SAME")
-        
+
         leg.AddEntry(hist,legends[k],"l")
         k+=1
     
-    leg.Draw("SAME")
+    if len(_hists)>1:
+        leg.Draw("SAME")
     
-    c1.SaveAs(outname+".C");
+    c1.SaveAs(outname+".root");
     c1.SaveAs(outname+".pdf");
     c1.SaveAs(outname+".png");
+
 
 
 def makeEfficiencies(inputfiles,num,den,title,legends,outname):
@@ -122,7 +138,7 @@ def makeEfficiencies(inputfiles,num,den,title,legends,outname):
     
     leg.Draw("SAME")
     
-    c.SaveAs(outname+".C");
+    c.SaveAs(outname+".root");
     c.SaveAs(outname+".pdf");
     c.SaveAs(outname+".png");
   
@@ -135,18 +151,19 @@ if __name__ == "__main__":
 
     parser.add_argument("-i","--inputfiles", type=str, help='The list of input files, comma separated if more than one file',required=True,nargs=1)
     parser.add_argument("-eff",type=str, help='the numerator,denominator to be used', nargs=1)
-    parser.add_argument("-draw",type=str, help='the plot to be drawn')
+    parser.add_argument("-draw",type=str, help='the plot to be drawn',nargs=1)
     parser.add_argument("-title",dest="title", type=str, help='title of the histo;xaxis;yaxis')    
     parser.add_argument("-leg", type=str,help='the list of legends to be used, comma separated',required=True,nargs=1)
     parser.add_argument("-outdir",dest="fdir", default="test/", help='name of the outputfile')
     parser.add_argument("-outname",dest="outname", default="efficiency", help='name of the outputfile')
+    parser.add_argument("-logy", action='store_true', help='activate LogY')
     
 #    parser.add_argument("-o","--ofolder",dest="output", default="plots/", help='folder name to store results')
-
     args = parser.parse_args()
     files = args.inputfiles[0].split(",")
     legends = args.leg[0].split(",")
-    
+    logY = args.logy
+
     if not os.path.exists(args.fdir): 
         os.makedirs(args.fdir); 
         if os.path.exists("/afs/cern.ch"): os.system("cp /afs/cern.ch/user/g/gpetrucc/php/index.php "+args.fdir)
@@ -156,8 +173,8 @@ if __name__ == "__main__":
         makeEfficiencies(files,effs[0],effs[1],args.title,legends,args.fdir+args.outname)
     
     if args.draw is not None:
-        makePlots(files,args.draw,args.title,legends,args.fdir+args.outname)
+        draw = args.draw[0].split(",")
+        makePlots(files,draw,args.title,legends,args.fdir+args.outname)
 
-    print "DONE"
 
 

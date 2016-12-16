@@ -4,12 +4,16 @@ import os
 import subprocess
 from shutil import copyfile
 
-samples = {"WJetsToLNu":"/WJetsToLNu_TuneCUETP8M1_13TeV-madgraphMLM-pythia8/RunIISpring16DR80-FlatPU20to70HcalNZSRAW_withHLT_80X_mcRun2_asymptotic_v14-v1/GEN-SIM-RAW",
+samples = {#"WJetsToLNu":"/WJetsToLNu_TuneCUETP8M1_13TeV-madgraphMLM-pythia8/RunIISpring16DR80-FlatPU20to70HcalNZSRAW_withHLT_80X_mcRun2_asymptotic_v14-v1/GEN-SIM-RAW",
+	"WJetsToLNu":"/WJetsToLNu_TuneCUETP8M1_13TeV-madgraphMLM-pythia8/RunIISpring16DR80-FlatPU20to70HcalNZSRAW_withHLT_80X_mcRun2_asymptotic_v14-v1/AODSIM",
 	   #"Data_ZMu":"/SingleMuon/Run2016G-ZMu-PromptReco-v1/RAW-RECO",
-	   "DYJetsToLNu":"/DYToLL_M_1_TuneCUETP8M1_13TeV_pythia8/RunIISpring16DR80-FlatPU20to70HcalNZSRAW_withHLT_80X_mcRun2_asymptotic_v14_ext1-v1/GEN-SIM-RAW",
-	   "TTbar":"/TT_TuneCUETP8M1_13TeV-powheg-pythia8/RunIISpring16DR80-FlatPU20to70HcalNZSRAW_withHLT_80X_mcRun2_asymptotic_v14_ext3-v1/GEN-SIM-RAW",
-	   "JPsi": "/JPsiToMuMu_Pt20to100-pythia8-gun/RunIISpring16DR80-PU2016_Classic_withHLT_80X_mcRun2_asymptotic_v14-v1/GEN-SIM-RAW",
-	   
+	   #"DYJetsToLNu":"/DYToLL_M_1_TuneCUETP8M1_13TeV_pythia8/RunIISpring16DR80-FlatPU20to70HcalNZSRAW_withHLT_80X_mcRun2_asymptotic_v14_ext1-v1/GEN-SIM-RAW",
+	"DYJetsToLNu":"/DYToLL_M_1_TuneCUETP8M1_13TeV_pythia8/RunIISpring16DR80-FlatPU20to70HcalNZSRAW_withHLT_80X_mcRun2_asymptotic_v14_ext1-v1/AODSIM",
+	   #"TTbar":"/TT_TuneCUETP8M1_13TeV-powheg-pythia8/RunIISpring16DR80-FlatPU20to70HcalNZSRAW_withHLT_80X_mcRun2_asymptotic_v14_ext3-v1/GEN-SIM-RAW",
+	"TTbar":"/TT_TuneCUETP8M1_13TeV-powheg-pythia8/RunIISpring16DR80-FlatPU20to70HcalNZSRAW_withHLT_80X_mcRun2_asymptotic_v14_ext3-v1/AODSIM",
+	#"JPsi": "/JPsiToMuMu_Pt20to100-pythia8-gun/RunIISpring16DR80-PU2016_Classic_withHLT_80X_mcRun2_asymptotic_v14-v1/GEN-SIM-RAW",
+	"JPsi": "/JPsiToMuMu_Pt20to100-pythia8-gun/RunIISpring16DR80-PU2016_Classic_withHLT_80X_mcRun2_asymptotic_v14-v1/AODSIM",
+	
 #          "Muminus_Pt10":"/Muminus_Pt10-gun/RunIISpring16DR80-PUSpring16RAWAODSIM_80X_mcRun2_asymptotic_2016_v3-v1/RAWAODSIM",
 #	   "Muminus_Pt100":"/Muminus_Pt100-gun/RunIISpring16DR80-PUSpring16RAWAODSIM_80X_mcRun2_asymptotic_2016_v3-v1/RAWAODSIM",
 #	   "Muminus_Pt1000":"/Muminus_Pt1000-gun/RunIISpring16DR80-PUSpring16RAWAODSIM_80X_mcRun2_asymptotic_2016_v3-v1/RAWAODSIM",
@@ -25,7 +29,7 @@ lumiMasks = {"Data_ZMu":"https://cms-service-dqm.web.cern.ch/cms-service-dqm/CAF
 mcConfig = '''
 config.Data.splitting = "FileBased"
 config.Data.unitsPerJob = 5
-config.Data.useParent   = False
+config.Data.useParent   = True
 '''
 
 dataConfig = '''
@@ -52,7 +56,7 @@ config.Data.inputDBS = "global"
 
 config.Data.publication = False
 config.Data.ignoreLocality = True
-config.Data.outLFNDirBase = "/store/user/folguera/MuonHLT/Effs/%s/%s/"
+config.Data.outLFNDirBase = "/store/user/folguera/MuonHLT/Effs_161121/%s/%s/"
 
 
 config.Site.storageSite = "T2_CH_CERN"
@@ -77,7 +81,7 @@ def main():
 			lumiMask = ""
 
 		workArea = os.getcwd()
-		workDir = os.getcwd()+"/crab_effs2/"+name+"_"+l3config.replace('.py','')
+		workDir = os.getcwd()+"/crab_effs/"+name+"_"+l3config.replace('.py','')
 		if not os.path.exists(workDir):
 			os.makedirs(workDir)	
 		
