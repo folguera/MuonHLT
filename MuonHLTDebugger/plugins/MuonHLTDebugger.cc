@@ -107,7 +107,8 @@ class MuonServiceProxy;
 
 const double NOMATCH = 999.;
 const double NOMATCHITS =  0.;
-const std::string EFFICIENCY_SUFFIXES[2] = {"Den", "num"};
+const std::string EFFICIENCY_SUFFIXES[2] = {"den", "num"};
+const bool PrintEventNumber = false;
 
 class MuonHLTDebugger : public edm::EDAnalyzer  {
 public:
@@ -120,7 +121,7 @@ public:
   
   int sharedHits(const reco::Track& track1, const reco::Track& track2) const;
   
-  reco::MuonCollection selectedMuons(const reco::MuonCollection &, const StringCutObjectSelector<reco::Muon> &);
+  reco::MuonCollection selectedMuons(const reco::MuonCollection &);//, const StringCutObjectSelector<reco::Muon> &);
 
 private:
   virtual void beginJob() ;
@@ -197,7 +198,7 @@ private:
   
   std::string ttrhbuilder_ ;
   
-  StringCutObjectSelector<reco::Muon> targetMuonSelector_;
+  //  StringCutObjectSelector<reco::Muon> targetMuonSelector_;
   MuonServiceProxy *theService;
 };
 
@@ -254,8 +255,8 @@ MuonHLTDebugger::MuonHLTDebugger(const edm::ParameterSet& cfg):
   puSummaryInfo_          (consumes<std::vector< PileupSummaryInfo > >(edm::InputTag("addPileupInfo"))),
   theBeamSpotToken_       (consumes<reco::BeamSpot>(edm::InputTag("hltOnlineBeamSpot"))),
   theVertexToken_         (consumes<reco::VertexCollection>(edm::InputTag("offlinePrimaryVertices"))),
-  theSeedsOIToken_        (mayConsume<TrajectorySeedCollection>(edm::InputTag("hltNewOISeedsFromL2Muons","","SFHLT"))),
-  targetMuonSelector_     ("isGlobalMuon && abs(eta) < 2.4 && pt > 10")
+  theSeedsOIToken_        (mayConsume<TrajectorySeedCollection>(edm::InputTag("hltNewOISeedsFromL2Muons","","SFHLT")))
+  //  targetMuonSelector_     ("isGlobalMuon && abs(eta) < 2.4 && pt > 10")
 {
   theService = new MuonServiceProxy(cfg.getParameter<ParameterSet>("ServiceParameters"));
 }
@@ -483,8 +484,8 @@ MuonHLTDebugger::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup
 
   if (isMC_ && numGenPerEvent==0) return; //if no st1 muon skip the event.
 
-  reco::MuonCollection targetMuons = selectedMuons(*muons, targetMuonSelector_);
-
+  reco::MuonCollection targetMuons = selectedMuons(*muons); //, targetMuonSelector_);
+  
   edm::Handle<reco::MuonTrackLinksCollection> links;
   iEvent.getByToken(theLinksToken_, links);
   
@@ -494,15 +495,14 @@ MuonHLTDebugger::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup
   try { 
     vector<size_t> matchesL3_hits = matchBySharedHits(targetMuons,L3MuonTrigObjects,links, 0.1); // fill with shared hits...
   }
-  catch(...){
-  }
+  catch(...){ } 
+
   bool pairalreadyconsidered = false;
   
   //  cout << "Run:Event --> " << iEvent.id().run() << " : " << iEvent.id().event() << endl;
   for (size_t i = 0; i < targetMuons.size(); i++) {
     reco::Muon & recoMu = targetMuons[i];
     
-    //    cout << matchesL2[i] << " , " << matchesL3[i] << " < " << targetMuons.size() << " ?" << endl;
     if (matchesL2[i] < targetMuons.size()) { 
       trigger::TriggerObject & l2mu = L2MuonTrigObjects[matchesL2[i]];      
       hists_["hltL2_DeltaR"]->Fill(deltaR(recoMu,l2mu));
@@ -513,7 +513,6 @@ MuonHLTDebugger::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup
       hists_["hltL2_resPhi"]->Fill( recoMu.phi()-l2mu.phi());
       hists_["hltL2_resPt"] ->Fill((recoMu.pt() -l2mu.pt())/recoMu.pt());
     }
-
     if (matchesL3[i] < targetMuons.size()) {
       trigger::TriggerObject & l3mu = L3MuonTrigObjects[matchesL3[i]];
       hists_["hltL3_DeltaR"]->Fill(deltaR(recoMu,l3mu));
@@ -554,43 +553,14 @@ MuonHLTDebugger::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup
       hists_["effL3L2dz_"+suffix ]  ->Fill(std::abs(recoMu.muonBestTrack()->dz(pv.position())));
       hists_["effL3L2Chi2_"+suffix ]->Fill(recoMu.muonBestTrack()->normalizedChi2());
     }
-
-    for (size_t j = 0; j < 2; j++) {
-      string suffix = EFFICIENCY_SUFFIXES[j];
-
-      // L3 EFFICIENCY OVER RECO MUO...   
-      // If no match was found, then the numerator plots don't get filled.
-      if (suffix == "num" && matchesL3[i] >= targetMuons.size()) continue;
-      hists_["effL3Eta_"+suffix ] ->Fill(recoMu.eta());
-      hists_["effL3Phi_"+suffix ] ->Fill(recoMu.phi());
-      hists_["effL3Pt_"+suffix  ] ->Fill(recoMu.pt());
-      hists_["effL3NPU_"+suffix ] ->Fill(nbMCvtx);
-      hists_["effL3NPV_"+suffix ] ->Fill(nGoodVtx);
-      hists_["effL3dxy_"+suffix ] ->Fill(std::abs(recoMu.muonBestTrack()->dxy(pv.position())));
-      hists_["effL3dz_"+suffix ]  ->Fill(std::abs(recoMu.muonBestTrack()->dz(pv.position())));
-      hists_["effL3Chi2_"+suffix ]->Fill(recoMu.muonBestTrack()->normalizedChi2());
-      
-      // NOW try to compute L3/L2:  
-      // If no L2 match was found, skip both denominator and numer
-      if (suffix =="den" && matchesL2[i] >= targetMuons.size()) continue;
-      if (matchesL3[i] != matchesL2[i]) continue;
-
-      hists_["effL3L2Eta_"+suffix ] ->Fill(recoMu.eta());
-      hists_["effL3L2Phi_"+suffix ] ->Fill(recoMu.phi());
-      hists_["effL3L2Pt_"+suffix  ] ->Fill(recoMu.pt());
-      hists_["effL3L2NPU_"+suffix ] ->Fill(nbMCvtx);
-      hists_["effL3L2NPV_"+suffix ] ->Fill(nGoodVtx);
-      hists_["effL3L2dxy_"+suffix ] ->Fill(std::abs(recoMu.muonBestTrack()->dxy(pv.position())));
-      hists_["effL3L2dz_"+suffix ]  ->Fill(std::abs(recoMu.muonBestTrack()->dz(pv.position())));
-      hists_["effL3L2Chi2_"+suffix ]->Fill(recoMu.muonBestTrack()->normalizedChi2());
-    }
-
- 
     
-    // NOW for dilepton events: 
-    // Muon cannot be a tag because doesn't match an hlt muon
+    if(matchesL2[i] >= targetMuons.size()) continue;
+    
+    //    cout << "Now for dilepton events" << endl;
     for (size_t k = 0; k < targetMuons.size(); k++) {
+      if(k == i) continue;
       reco::Muon & theProbe = targetMuons[k];
+      if (recoMu.charge() == theProbe.charge()) continue;
       if (pairalreadyconsidered) continue;
       hists_["eff2L3Eta_den"]->Fill(theProbe.eta());
       hists_["eff2L3Phi_den"]->Fill(theProbe.phi());
@@ -598,28 +568,29 @@ MuonHLTDebugger::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup
       hists_["eff2L3NPU_den"]->Fill(nbMCvtx);
       hists_["eff2L3NPV_den"]->Fill(nGoodVtx);
       if (matchesL2[i] < targetMuons.size()){ 
-	hists_["eff2L3L2Eta_den"]->Fill(theProbe.eta());
-	hists_["eff2L3L2Phi_den"]->Fill(theProbe.phi());
-	hists_["eff2L3L2Pt_den"] ->Fill(theProbe.pt() );
-	hists_["eff2L3L2NPU_den"]->Fill(nbMCvtx);
-	hists_["eff2L3L2NPV_den"]->Fill(nGoodVtx);
-	if (matchesL3[k] < targetMuons.size()) {
-	  hists_["eff2L3L2Eta_num"]->Fill(theProbe.eta());
-	  hists_["eff2L3L2Phi_num"]->Fill(theProbe.phi());
-	  hists_["eff2L3L2Pt_num"] ->Fill(theProbe.pt() );
-	  hists_["eff2L3L2NPU_num"]->Fill(nbMCvtx);
-	  hists_["eff2L3L2NPV_num"]->Fill(nGoodVtx);
-	  
-	  hists_["eff2L3Eta_num"]->Fill(theProbe.eta());
-	  hists_["eff2L3Phi_num"]->Fill(theProbe.phi());
-	  hists_["eff2L3Pt_num"] ->Fill(theProbe.pt() );
-	  hists_["eff2L3NPU_num"]->Fill(nbMCvtx);
-	  hists_["eff2L3NPV_num"]->Fill(nGoodVtx);
-	  pairalreadyconsidered = true;
+ 	hists_["eff2L3L2Eta_den"]->Fill(theProbe.eta());
+ 	hists_["eff2L3L2Phi_den"]->Fill(theProbe.phi());
+ 	hists_["eff2L3L2Pt_den"] ->Fill(theProbe.pt() );
+ 	hists_["eff2L3L2NPU_den"]->Fill(nbMCvtx);
+ 	hists_["eff2L3L2NPV_den"]->Fill(nGoodVtx);
+ 	if (matchesL3[k] < targetMuons.size()) {
+ 	  hists_["eff2L3L2Eta_num"]->Fill(theProbe.eta());
+ 	  hists_["eff2L3L2Phi_num"]->Fill(theProbe.phi());
+ 	  hists_["eff2L3L2Pt_num"] ->Fill(theProbe.pt() );
+ 	  hists_["eff2L3L2NPU_num"]->Fill(nbMCvtx);
+ 	  hists_["eff2L3L2NPV_num"]->Fill(nGoodVtx);
+ 	  
+ 	  hists_["eff2L3Eta_num"]->Fill(theProbe.eta());
+ 	  hists_["eff2L3Phi_num"]->Fill(theProbe.phi());
+ 	  hists_["eff2L3Pt_num"] ->Fill(theProbe.pt() );
+ 	  hists_["eff2L3NPU_num"]->Fill(nbMCvtx);
+ 	  hists_["eff2L3NPV_num"]->Fill(nGoodVtx);
+ 	  pairalreadyconsidered = true;
 	}
       }
     }
   }
+  
   hists_["hlt_NumL1" ]     ->Fill(L1MuonTrigObjects.size());
   hists_["hlt_NumL2" ]     ->Fill(L2MuonTrigObjects.size());
   hists_["hlt_NumL3" ]     ->Fill(L3MuonTrigObjects.size());
@@ -627,41 +598,13 @@ MuonHLTDebugger::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup
   hists_["hlt_NumL2Match" ]->Fill(matchesL2.size());
   hists_["hlt_NumL3Match" ]->Fill(matchesL3.size());
   
-//  if (L2MuonTrigObjects.size() != L3MuonTrigObjects.size())  
-//    cout << "[FAILING EVENT] Run:Event" << iEvent.id().run() << " : " << iEvent.id().event() << endl;    
-//  if (matchesL3.size() != matchesL2.size()) 
-//    cout << "[FAILING EVENT - No Match] Run:Event" << iEvent.id().run() << " : " << iEvent.id().event() << endl;    
-
-//  /// NOW FOR DIMUON EVENTS CHECK ALSO THE PER-EVENT-EFFICIENCY
-//  if (L2Found.size()==2){
-//    for (unsigned int t(0); t<L2Found.size(); ++t){
-//      const reco::Muon* mu = L2Found.at(t);
-//      if (L3Found.size()==2){
-//	hists_["eff2L3L2Eta_num"]->Fill(mu->eta());
-//	hists_["eff2L3L2Phi_num"]->Fill(mu->phi());
-//	hists_["eff2L3L2Pt_num"] ->Fill(mu->pt() );
-//	hists_["eff2L3L2NPU_num"]->Fill(nbMCvtx);
-//	hists_["eff2L3L2NPV_num"]->Fill(nGoodVtx);
-//      }
-//    }
-//  }
-//  if (L1Found.size()==2){
-//    for (unsigned int t(0); t<L1Found.size();++t){
-//      const reco::Muon* mu = L1Found.at(t);
-//      hists_["eff2L3L1Eta_den"]->Fill(mu->eta());
-//      hists_["eff2L3L1Phi_den"]->Fill(mu->phi());
-//      hists_["eff2L3L1Pt_den"] ->Fill(mu->pt() );
-//      hists_["eff2L3L1NPU_den"]->Fill(nbMCvtx);
-//      hists_["eff2L3L1NPV_den"]->Fill(nGoodVtx);
-//      if (L3Found.size()==2){
-//	hists_["eff2L3L1Eta_num"]->Fill(mu->eta());
-//	hists_["eff2L3L1Phi_num"]->Fill(mu->phi());
-//	hists_["eff2L3L1Pt_num"] ->Fill(mu->pt() );
-//	hists_["eff2L3L1NPU_num"]->Fill(nbMCvtx);
-//	hists_["eff2L3L1NPV_num"]->Fill(nGoodVtx);
-//      }
-//    }
-
+  if (PrintEventNumber) { 
+    if (L2MuonTrigObjects.size() != L3MuonTrigObjects.size())  
+      cout << "[FAILING EVENT] Run:Event" << iEvent.id().run() << " : " << iEvent.id().event() << endl;    
+    if (matchesL3.size() != matchesL2.size()) 
+      cout << "[FAILING EVENT - No Match] Run:Event" << iEvent.id().run() << " : " << iEvent.id().event() << endl;    
+  }
+  
 /*  try {
     /// NOW do other stuff::
     if (L2MuonTrigObjects.size() > 0) {
@@ -929,15 +872,19 @@ MuonHLTDebugger::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup
   }
 */
 }
-reco::MuonCollection MuonHLTDebugger::selectedMuons(const reco::MuonCollection & allMuons,  const StringCutObjectSelector<reco::Muon> &selector){ 
+
+reco::MuonCollection MuonHLTDebugger::selectedMuons(const reco::MuonCollection & allMuons) { //,  const StringCutObjectSelector<reco::Muon> &selector){ 
   
   reco::MuonCollection reducedMuons;
   for (auto const& mu : allMuons){
     const reco::Track * track = 0;
     if (mu.isTrackerMuon())         track = & * mu.innerTrack();
     else if (mu.isStandAloneMuon()) track = & * mu.outerTrack();
-    if (track && selector(mu))
-      reducedMuons.push_back(mu);
+    
+    if (!track) continue;
+    if (!mu.isGlobalMuon()) continue;
+    if (std::abs(mu.eta()) > 2.4) continue;
+    reducedMuons.push_back(mu);
   }
   return reducedMuons;
 }
@@ -1008,7 +955,8 @@ template <class T1, class T2> vector<size_t> MuonHLTDebugger::matchByDeltaR(cons
   return result;
 }
 
-vector<size_t> MuonHLTDebugger::matchBySharedHits(const reco::MuonCollection& muons, trigger::TriggerObjectCollection& hltl3muons,
+vector<size_t> MuonHLTDebugger::matchBySharedHits(const reco::MuonCollection& muons, 
+trigger::TriggerObjectCollection& hltl3muons,
 						  const edm::Handle<reco::MuonTrackLinksCollection>& links, const double minSharedFrac)  
 {
   
@@ -1164,55 +1112,55 @@ MuonHLTDebugger::beginJob()
   
   for (size_t j = 0; j < 2; j++) {
     string suffix = EFFICIENCY_SUFFIXES[j];
-    hists_["effL3L2Eta_"+suffix ] = outfile_->make<TH1F>(("effL3L2Eta_"+suffix).c_str(), "Efficiency;#eta",  15, eta_bins );
-    hists_["effL3L2Phi_"+suffix ] = outfile_->make<TH1F>(("effL3L2Phi_"+suffix).c_str(), "Efficiency;#phi",  13, phi_bins);
-    hists_["effL3L2Pt_"+suffix  ] = outfile_->make<TH1F>(("effL3L2Pt_"+suffix).c_str(),  "Efficiency;p_{T}", 11,  pt_bins );
-    hists_["effL3L2NPU_"+suffix ] = outfile_->make<TH1F>(("effL3L2NPU_"+suffix).c_str(), "Efficiency;NPU",   75,  0,   75.);
-    hists_["effL3L2NPV_"+suffix ] = outfile_->make<TH1F>(("effL3L2NPV_"+suffix).c_str(), "Efficiency;NPV",   75,  0,   75.);
-    hists_["effL3L2dxy_"+suffix ] = outfile_->make<TH1F>(("effL3L2dxy_"+suffix).c_str(), "Efficiency;dxy",   50,  0., 0.2);
-    hists_["effL3L2dz_"+suffix ]  = outfile_->make<TH1F>(("effL3L2dz_"+suffix).c_str() , "Efficiency;dz" ,   50,  0., 0.5);
-    hists_["effL3L2Chi2_"+suffix ]= outfile_->make<TH1F>(("effL3L2Chi2_"+suffix).c_str() , "Efficiency;#chi^2/n.d.o.f.",   50,  0., 20.);
+    hists_["effL3L2Eta_"+suffix] = outfile_->make<TH1F>(("effL3L2Eta_"+suffix).c_str(), "Efficiency;#eta",  15, eta_bins );
+    hists_["effL3L2Phi_"+suffix] = outfile_->make<TH1F>(("effL3L2Phi_"+suffix).c_str(), "Efficiency;#phi",  13, phi_bins);
+    hists_["effL3L2Pt_"+suffix]  = outfile_->make<TH1F>(("effL3L2Pt_"+suffix).c_str(),  "Efficiency;p_{T}", 11,  pt_bins );
+    hists_["effL3L2NPU_"+suffix] = outfile_->make<TH1F>(("effL3L2NPU_"+suffix).c_str(), "Efficiency;NPU",   75,  0,   75.);
+    hists_["effL3L2NPV_"+suffix] = outfile_->make<TH1F>(("effL3L2NPV_"+suffix).c_str(), "Efficiency;NPV",   75,  0,   75.);
+    hists_["effL3L2dxy_"+suffix] = outfile_->make<TH1F>(("effL3L2dxy_"+suffix).c_str(), "Efficiency;dxy",   50,  0., 0.2);
+    hists_["effL3L2dz_"+suffix]  = outfile_->make<TH1F>(("effL3L2dz_"+suffix).c_str() , "Efficiency;dz" ,   50,  0., 0.5);
+    hists_["effL3L2Chi2_"+suffix]= outfile_->make<TH1F>(("effL3L2Chi2_"+suffix).c_str() , "Efficiency;#chi^2/n.d.o.f.",   50,  0., 20.);
     
-    hists_["eff2L3L2Eta_"+suffix ] = outfile_->make<TH1F>(("eff2L3L2Eta_"+suffix).c_str(), "Efficiency;#eta",  15, eta_bins );
-    hists_["eff2L3L2Phi_"+suffix ] = outfile_->make<TH1F>(("eff2L3L2Phi_"+suffix).c_str(), "Efficiency;#phi",  13, phi_bins);
-    hists_["eff2L3L2Pt_"+suffix  ] = outfile_->make<TH1F>(("eff2L3L2Pt_"+suffix).c_str(),  "Efficiency;p_{T}", 11,  pt_bins );
-    hists_["eff2L3L2NPU_"+suffix ] = outfile_->make<TH1F>(("eff2L3L2NPU_"+suffix).c_str(), "Efficiency;NPU",   75,  0,   75.);
-    hists_["eff2L3L2NPV_"+suffix ] = outfile_->make<TH1F>(("eff2L3L2NPV_"+suffix).c_str(), "Efficiency;NPV",   75,  0,   75.);
+    hists_["eff2L3L2Eta_"+suffix] = outfile_->make<TH1F>(("eff2L3L2Eta_"+suffix).c_str(), "Efficiency;#eta",  15, eta_bins );
+    hists_["eff2L3L2Phi_"+suffix] = outfile_->make<TH1F>(("eff2L3L2Phi_"+suffix).c_str(), "Efficiency;#phi",  13, phi_bins);
+    hists_["eff2L3L2Pt_"+suffix]  = outfile_->make<TH1F>(("eff2L3L2Pt_"+suffix).c_str(),  "Efficiency;p_{T}", 11,  pt_bins );
+    hists_["eff2L3L2NPU_"+suffix] = outfile_->make<TH1F>(("eff2L3L2NPU_"+suffix).c_str(), "Efficiency;NPU",   75,  0,   75.);
+    hists_["eff2L3L2NPV_"+suffix] = outfile_->make<TH1F>(("eff2L3L2NPV_"+suffix).c_str(), "Efficiency;NPV",   75,  0,   75.);
 
-    hists_["effL3Eta_"+suffix ] = outfile_->make<TH1F>(("effL3Eta_"+suffix).c_str(), "Efficiency;#eta",  15, eta_bins );
-    hists_["effL3Phi_"+suffix ] = outfile_->make<TH1F>(("effL3Phi_"+suffix).c_str(), "Efficiency;#phi",  13, phi_bins);
-    hists_["effL3Pt_"+suffix  ] = outfile_->make<TH1F>(("effL3Pt_"+suffix).c_str(),  "Efficiency;p_{T}", 11,  pt_bins );
-    hists_["effL3NPU_"+suffix ] = outfile_->make<TH1F>(("effL3NPU_"+suffix).c_str(), "Efficiency;NPU",   75,  0,   75.);
-    hists_["effL3NPV_"+suffix ] = outfile_->make<TH1F>(("effL3NPV_"+suffix).c_str(), "Efficiency;NPV",   75,  0,   75.);
-    hists_["effL3dxy_"+suffix ] = outfile_->make<TH1F>(("effL3dxy_"+suffix).c_str(), "Efficiency;dxy",   50,  0., 0.2);
-    hists_["effL3dz_"+suffix ]  = outfile_->make<TH1F>(("effL3dz_"+suffix).c_str(),  "Efficiency;dz" ,   50,  0., 0.5);
-    hists_["effL3Chi2_"+suffix ]= outfile_->make<TH1F>(("effL3Chi2_"+suffix).c_str() , "Efficiency;#chi^2/n.d.o.f.",   50,  0., 20.);
+    hists_["effL3Eta_"+suffix] = outfile_->make<TH1F>(("effL3Eta_"+suffix).c_str(), "Efficiency;#eta",  15, eta_bins );
+    hists_["effL3Phi_"+suffix] = outfile_->make<TH1F>(("effL3Phi_"+suffix).c_str(), "Efficiency;#phi",  13, phi_bins);
+    hists_["effL3Pt_"+suffix]  = outfile_->make<TH1F>(("effL3Pt_"+suffix).c_str(),  "Efficiency;p_{T}", 11,  pt_bins );
+    hists_["effL3NPU_"+suffix] = outfile_->make<TH1F>(("effL3NPU_"+suffix).c_str(), "Efficiency;NPU",   75,  0,   75.);
+    hists_["effL3NPV_"+suffix] = outfile_->make<TH1F>(("effL3NPV_"+suffix).c_str(), "Efficiency;NPV",   75,  0,   75.);
+    hists_["effL3dxy_"+suffix] = outfile_->make<TH1F>(("effL3dxy_"+suffix).c_str(), "Efficiency;dxy",   50,  0., 0.2);
+    hists_["effL3dz_"+suffix]  = outfile_->make<TH1F>(("effL3dz_"+suffix).c_str(),  "Efficiency;dz" ,   50,  0., 0.5);
+    hists_["effL3Chi2_"+suffix]= outfile_->make<TH1F>(("effL3Chi2_"+suffix).c_str() , "Efficiency;#chi^2/n.d.o.f.",   50,  0., 20.);
     
-    hists_["eff2L3Eta_"+suffix ] = outfile_->make<TH1F>(("eff2L3Eta_"+suffix).c_str(), "Efficiency;#eta",  15, eta_bins );
-    hists_["eff2L3Phi_"+suffix ] = outfile_->make<TH1F>(("eff2L3Phi_"+suffix).c_str(), "Efficiency;#phi",  13, phi_bins);
-    hists_["eff2L3Pt_"+suffix  ] = outfile_->make<TH1F>(("eff2L3Pt_"+suffix).c_str(),  "Efficiency;p_{T}", 11,  pt_bins );
-    hists_["eff2L3NPU_"+suffix ] = outfile_->make<TH1F>(("eff2L3NPU_"+suffix).c_str(), "Efficiency;NPU",   75,  0,   75.);
-    hists_["eff2L3NPV_"+suffix ] = outfile_->make<TH1F>(("eff2L3NPV_"+suffix).c_str(), "Efficiency;NPV",   75,  0,   75.);
+    hists_["eff2L3Eta_"+suffix] = outfile_->make<TH1F>(("eff2L3Eta_"+suffix).c_str(), "Efficiency;#eta",  15, eta_bins );
+    hists_["eff2L3Phi_"+suffix] = outfile_->make<TH1F>(("eff2L3Phi_"+suffix).c_str(), "Efficiency;#phi",  13, phi_bins);
+    hists_["eff2L3Pt_"+suffix]  = outfile_->make<TH1F>(("eff2L3Pt_"+suffix).c_str(),  "Efficiency;p_{T}", 11,  pt_bins );
+    hists_["eff2L3NPU_"+suffix] = outfile_->make<TH1F>(("eff2L3NPU_"+suffix).c_str(), "Efficiency;NPU",   75,  0,   75.);
+    hists_["eff2L3NPV_"+suffix] = outfile_->make<TH1F>(("eff2L3NPV_"+suffix).c_str(), "Efficiency;NPV",   75,  0,   75.);
     
-    
-    //// SHARED HITS... 
-    hists_["effSharedL3L2Eta_"+suffix ] = outfile_->make<TH1F>(("effSharedL3L2Eta_"+suffix).c_str(), "Efficiency (Shared Hits);#eta",  15, eta_bins );
-    hists_["effSharedL3L2Phi_"+suffix ] = outfile_->make<TH1F>(("effSharedL3L2Phi_"+suffix).c_str(), "Efficiency (Shared Hits);#phi",  13, phi_bins);
-    hists_["effSharedL3L2Pt_"+suffix  ] = outfile_->make<TH1F>(("effSharedL3L2Pt_"+suffix).c_str(),  "Efficiency (Shared Hits);p_{T}", 11,  pt_bins );
-    hists_["effSharedL3L2NPU_"+suffix ] = outfile_->make<TH1F>(("effSharedL3L2NPU_"+suffix).c_str(), "Efficiency (Shared Hits);NPU",   75,  0,   75.);
-    hists_["effSharedL3L2NPV_"+suffix ] = outfile_->make<TH1F>(("effSharedL3L2NPV_"+suffix).c_str(), "Efficiency (Shared Hits);NPV",   75,  0,   75.);
-    hists_["effSharedL3L2dxy_"+suffix ] = outfile_->make<TH1F>(("effSharedL3L2dxy_"+suffix).c_str(), "Efficiency (Shared Hits);dxy",   50,  0., 0.2);
-    hists_["effSharedL3L2dz_"+suffix ]  = outfile_->make<TH1F>(("effSharedL3L2dz_"+suffix).c_str() , "Efficiency (Shared Hits);dz" ,   50,  0., 0.5);
-    hists_["effSharedL3L2Chi2_"+suffix ]= outfile_->make<TH1F>(("effSharedL3L2Chi2_"+suffix).c_str() ,"Efficiency (Shared Hits);#chi^2/n.d.o.f.",   50,  0., 20.);
-    
-    hists_["effSharedL3Eta_"+suffix ] = outfile_->make<TH1F>(("effSharedL3Eta_"+suffix).c_str(), "Efficiency (Shared Hits);#eta",  15, eta_bins );
-    hists_["effSharedL3Phi_"+suffix ] = outfile_->make<TH1F>(("effSharedL3Phi_"+suffix).c_str(), "Efficiency (Shared Hits);#phi",  13, phi_bins);
-    hists_["effSharedL3Pt_"+suffix  ] = outfile_->make<TH1F>(("effSharedL3Pt_"+suffix).c_str(),  "Efficiency (Shared Hits);p_{T}", 11,  pt_bins );
-    hists_["effSharedL3NPU_"+suffix ] = outfile_->make<TH1F>(("effSharedL3NPU_"+suffix).c_str(), "Efficiency (Shared Hits);NPU",   75,  0,   75.);
-    hists_["effSharedL3NPV_"+suffix ] = outfile_->make<TH1F>(("effSharedL3NPV_"+suffix).c_str(), "Efficiency (Shared Hits);NPV",   75,  0,   75.);
-    hists_["effSharedL3dxy_"+suffix ] = outfile_->make<TH1F>(("effSharedL3dxy_"+suffix).c_str(), "Efficiency (Shared Hits);dxy",   50,  0., 0.2);
-    hists_["effSharedL3dz_"+suffix ]  = outfile_->make<TH1F>(("effSharedL3dz_"+suffix).c_str(),  "Efficiency (Shared Hits);dz" ,   50,  0., 0.5);
-    hists_["effSharedL3Chi2_"+suffix ]= outfile_->make<TH1F>(("effSharedL3Chi2_"+suffix).c_str() , "Efficiency (Shared Hits);#chi^2/n.d.o.f.",   50,  0., 20.);    
+    // 
+//    //// SHARED HITS... 
+//    hists_["effSharedL3L2Eta_"+suffix ] = outfile_->make<TH1F>(("effSharedL3L2Eta_"+suffix).c_str(), "Efficiency (Shared Hits);#eta",  15, eta_bins );
+//    hists_["effSharedL3L2Phi_"+suffix ] = outfile_->make<TH1F>(("effSharedL3L2Phi_"+suffix).c_str(), "Efficiency (Shared Hits);#phi",  13, phi_bins);
+//    hists_["effSharedL3L2Pt_"+suffix  ] = outfile_->make<TH1F>(("effSharedL3L2Pt_"+suffix).c_str(),  "Efficiency (Shared Hits);p_{T}", 11,  pt_bins );
+//    hists_["effSharedL3L2NPU_"+suffix ] = outfile_->make<TH1F>(("effSharedL3L2NPU_"+suffix).c_str(), "Efficiency (Shared Hits);NPU",   75,  0,   75.);
+//    hists_["effSharedL3L2NPV_"+suffix ] = outfile_->make<TH1F>(("effSharedL3L2NPV_"+suffix).c_str(), "Efficiency (Shared Hits);NPV",   75,  0,   75.);
+//    hists_["effSharedL3L2dxy_"+suffix ] = outfile_->make<TH1F>(("effSharedL3L2dxy_"+suffix).c_str(), "Efficiency (Shared Hits);dxy",   50,  0., 0.2);
+//    hists_["effSharedL3L2dz_"+suffix ]  = outfile_->make<TH1F>(("effSharedL3L2dz_"+suffix).c_str() , "Efficiency (Shared Hits);dz" ,   50,  0., 0.5);
+//    hists_["effSharedL3L2Chi2_"+suffix ]= outfile_->make<TH1F>(("effSharedL3L2Chi2_"+suffix).c_str() ,"Efficiency (Shared Hits);#chi^2/n.d.o.f.",   50,  0., 20.);
+//    
+//    hists_["effSharedL3Eta_"+suffix ] = outfile_->make<TH1F>(("effSharedL3Eta_"+suffix).c_str(), "Efficiency (Shared Hits);#eta",  15, eta_bins );
+//    hists_["effSharedL3Phi_"+suffix ] = outfile_->make<TH1F>(("effSharedL3Phi_"+suffix).c_str(), "Efficiency (Shared Hits);#phi",  13, phi_bins);
+//    hists_["effSharedL3Pt_"+suffix  ] = outfile_->make<TH1F>(("effSharedL3Pt_"+suffix).c_str(),  "Efficiency (Shared Hits);p_{T}", 11,  pt_bins );
+//    hists_["effSharedL3NPU_"+suffix ] = outfile_->make<TH1F>(("effSharedL3NPU_"+suffix).c_str(), "Efficiency (Shared Hits);NPU",   75,  0,   75.);
+//    hists_["effSharedL3NPV_"+suffix ] = outfile_->make<TH1F>(("effSharedL3NPV_"+suffix).c_str(), "Efficiency (Shared Hits);NPV",   75,  0,   75.);
+//    hists_["effSharedL3dxy_"+suffix ] = outfile_->make<TH1F>(("effSharedL3dxy_"+suffix).c_str(), "Efficiency (Shared Hits);dxy",   50,  0., 0.2);
+//    hists_["effSharedL3dz_"+suffix ]  = outfile_->make<TH1F>(("effSharedL3dz_"+suffix).c_str(),  "Efficiency (Shared Hits);dz" ,   50,  0., 0.5);
+//    hists_["effSharedL3Chi2_"+suffix ]= outfile_->make<TH1F>(("effSharedL3Chi2_"+suffix).c_str() , "Efficiency (Shared Hits);#chi^2/n.d.o.f.",   50,  0., 20.);    
   }
   
 
