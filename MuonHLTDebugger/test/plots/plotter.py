@@ -9,6 +9,8 @@ ROOT.gROOT.SetBatch(True)
 sys.argv = oldargv
 
 logY = False
+YMIN = 0.5
+YMAX = 1.02
 
 def makePlots(inputfiles,draw,title,legends,outname):
     ROOT.gStyle.SetOptStat(0)
@@ -101,9 +103,12 @@ def makeEfficiencies(inputfiles,num,den,title,legends,outname):
         _effs.append(eff)
     o.close()
 
-    if "JPsi" in outname:     leg = ROOT.TLegend(0.30,0.15,0.70,0.3);
     leg = ROOT.TLegend(0.30,0.15,0.70,0.3);
-    if "JPsi" in outname:  leg = ROOT.TLegend(0.30,0.70,0.70,0.85);
+    if "dxy" in outname:  leg = ROOT.TLegend(0.60,0.70,0.90,0.85);
+    if "dz" in outname:  leg = ROOT.TLegend(0.60,0.70,0.90,0.85);
+    if "Chi2" in outname:  leg = ROOT.TLegend(0.60,0.70,0.90,0.85);
+
+#    if "JPsi" in outname:  leg = ROOT.TLegend(0.30,0.70,0.70,0.85);
     leg.SetLineColor(0);
     leg.SetFillStyle(0);
     leg.SetBorderSize(0)
@@ -119,11 +124,12 @@ def makeEfficiencies(inputfiles,num,den,title,legends,outname):
             ## SET CORRECT AXIS VALUES
             ROOT.gPad.Update()
             graph = eff.GetPaintedGraph()
-            graph.SetMinimum(0.5)
-            graph.SetMaximum(1.02)
-            if "NPU" in outname: graph.GetXaxis().SetRangeUser(20,70)
-            if "eff2" in num: graph.SetMinimum(0.6)
-            if "JPsi" in outname: graph.SetMinimum(0.0)
+            graph.SetMinimum(YMIN)
+            graph.SetMaximum(YMAX)
+            if ("NPU" in outname) or ("NPV" in outname): graph.GetXaxis().SetRangeUser(20,70)
+##            if ("dxy" or "dz") in outname: graph.SetMinimum(0.5)
+##            if "eff2" in num: graph.SetMinimum(0.4)
+##            if "JPsi" in outname: graph.SetMinimum(0.0)
 
             ROOT.gPad.Update()
             
@@ -150,19 +156,24 @@ if __name__ == "__main__":
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     parser.add_argument("-i","--inputfiles", type=str, help='The list of input files, comma separated if more than one file',required=True,nargs=1)
-    parser.add_argument("-eff",type=str, help='the numerator,denominator to be used', nargs=1)
-    parser.add_argument("-draw",type=str, help='the plot to be drawn',nargs=1)
-    parser.add_argument("-title",dest="title", type=str, help='title of the histo;xaxis;yaxis')    
-    parser.add_argument("-leg", type=str,help='the list of legends to be used, comma separated',required=True,nargs=1)
-    parser.add_argument("-outdir",dest="fdir", default="test/", help='name of the outputfile')
-    parser.add_argument("-outname",dest="outname", default="efficiency", help='name of the outputfile')
-    parser.add_argument("-logy", action='store_true', help='activate LogY')
-    
+    parser.add_argument("--eff",type=str, help='the numerator,denominator to be used', nargs=1)
+    parser.add_argument("--draw",type=str, help='the plot to be drawn',nargs=1)
+    parser.add_argument("--title",dest="title", type=str, help='title of the histo;xaxis;yaxis')    
+    parser.add_argument("--leg", type=str,help='the list of legends to be used, comma separated',required=True,nargs=1)
+    parser.add_argument("--outdir",dest="fdir", default="test/", help='name of the outputfile')
+    parser.add_argument("--outname",dest="outname", default="efficiency", help='name of the outputfile')
+    parser.add_argument("--logy", action='store_true', help='activate LogY')
+    parser.add_argument("--yrange", type=str,help='lower and upper y limit', nargs=1)
+
 #    parser.add_argument("-o","--ofolder",dest="output", default="plots/", help='folder name to store results')
     args = parser.parse_args()
     files = args.inputfiles[0].split(",")
     legends = args.leg[0].split(",")
     logY = args.logy
+    if args.yrange is not None:
+        yranges = args.yrange[0].split(",")
+        YMIN = float(yranges[0])
+        YMAX = float(yranges[1])
 
     if not os.path.exists(args.fdir): 
         os.makedirs(args.fdir); 
