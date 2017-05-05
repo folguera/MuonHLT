@@ -112,7 +112,7 @@ const double NOMATCH = 999.;
 const double NOMATCHITS =  0.;
 const std::string EFFICIENCY_SUFFIXES[2] = {"den", "num"};
 
-class MuonHLTDebugger : public edm::EDAnalyzer  {
+class MuonHLTDebugger : public edm::one::EDAnalyzer<edm::one::SharedResources>  {
 public:
   explicit MuonHLTDebugger(const edm::ParameterSet&);
   ~MuonHLTDebugger();
@@ -128,6 +128,7 @@ public:
   int sharedHits(const reco::TrackExtra& track1, const reco::Track& track2) const;
   
   reco::MuonCollection selectedMuons(const reco::MuonCollection &);//, const StringCutObjectSelector<reco::Muon> &);
+  static void fillDescriptions(edm::ConfigurationDescriptions& descriptions);
 
 private:
   virtual void beginJob() ;
@@ -294,6 +295,8 @@ MuonHLTDebugger::MuonHLTDebugger(const edm::ParameterSet& cfg):
   //  targetMuonSelector_     ("isGlobalMuon && abs(eta) < 2.4 && pt > 10")
 {
   theService = new MuonServiceProxy(cfg.getParameter<ParameterSet>("ServiceParameters"));
+
+  usesResource("TFileService");
 }
 
 
@@ -302,7 +305,7 @@ MuonHLTDebugger::~MuonHLTDebugger()
  
    // do anything here that needs to be done at desctruction time
    // (e.g. close files, deallocate resources etc.)
-
+  
 }
 
 
@@ -1792,6 +1795,16 @@ MuonHLTDebugger::beginRun(const edm::Run & run, const edm::EventSetup & eventSet
 // ------------ method called once each job just after ending the event loop  ------------
 void MuonHLTDebugger::endJob() {}
 void MuonHLTDebugger::endRun(const edm::Run & run, const edm::EventSetup & eventSetup) {}
+
+// ------------ method fills 'descriptions' with the allowed parameters for the module  ------------
+void
+MuonHLTDebugger::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
+  //The following says we do not know what parameters are allowed so do no validation
+  // Please change this to state exactly what you do use, even if it is no parameters
+  edm::ParameterSetDescription desc;
+  desc.setUnknown();
+  descriptions.addDefault(desc);
+}
 
 //define this as a plug-in
 DEFINE_FWK_MODULE(MuonHLTDebugger);
