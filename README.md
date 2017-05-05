@@ -7,7 +7,7 @@ Follow information here: https://twiki.cern.ch/twiki/bin/view/CMSPublic/SWGuideG
 
 hltGetConfiguration /dev/CMSSW_8_0_0/GRun --full --offline --mc --unprescale --process SFHLT --globaltag auto:run2_mc_GRun --paths HLTriggerFirstPath,HLT_Mu50_v*,HLTriggerFinalPath --input file:/afs/cern.ch/work/f/folguera/trees/2CE425FC-3D11-E611-BE83-02163E01356D.root --output minimal [--l1-emulator 'Full'] > myHLT_MC.py
 
-# At the end of the config file put this: 
+## At the end of the config file put this: 
 from RecoMuon.TrackingTools.MuonServiceProxy_cff import *
 
 process.muonDebugger =cms.EDAnalyzer("MuonHLTDebugger",
