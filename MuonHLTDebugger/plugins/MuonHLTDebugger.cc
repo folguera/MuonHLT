@@ -184,24 +184,28 @@ private:
   edm::Service<TFileService> outfile_;
   std::map<std::string, TH1*> hists_;     
 
-  edm::EDGetTokenT<reco::TrackCollection>     thePixelTracksIter0Token_;
-  edm::EDGetTokenT<TrajectorySeedCollection>  theSeedsIter0Token_;
-  edm::EDGetTokenT<TrajectorySeedCollection>  theSeedsIter2Token_;
-  edm::EDGetTokenT<TrackCandidateCollection>  theTracksCandIter0Token_;
-  edm::EDGetTokenT<TrackCandidateCollection>  theTracksCandIter2Token_;
-  edm::EDGetTokenT<TrackCandidateCollection>  theTracksCandOIToken_;
-  edm::EDGetTokenT<TrackCandidateCollection>  theTracksCandOISToken_;
-  edm::EDGetTokenT<TrackCandidateCollection>  theTracksCandOIHToken_;
-  edm::EDGetTokenT<reco::TrackCollection>           theTracksNoHPIter0Token_;
-  edm::EDGetTokenT<reco::TrackCollection>           theTracksNoHPIter2Token_;
-  edm::EDGetTokenT<reco::TrackCollection>           theTracksIter0Token_;
-  edm::EDGetTokenT<reco::TrackCollection>           theTracksIter2Token_;
-  edm::EDGetTokenT<reco::TrackCollection>           theTracksToken_;
-  edm::EDGetTokenT<reco::TrackCollection>           theTracksOIToken_;
-  edm::EDGetTokenT<reco::TrackCollection>           theTracksOISToken_;
-  edm::EDGetTokenT<reco::TrackCollection>           theTracksOIHToken_;
-  edm::EDGetTokenT<reco::MuonTrackLinksCollection>  theIOLinksToken_;
-  edm::EDGetTokenT<reco::MuonTrackLinksCollection>  theOILinksToken_;
+  edm::EDGetTokenT<reco::TrackCollection>           theIOTracksToken_;
+  edm::EDGetTokenT<reco::TrackCollection>           theIOFromL1TracksToken_;
+  edm::EDGetTokenT<reco::TrackCollection>           theOITracksToken_;
+
+//  edm::EDGetTokenT<reco::TrackCollection>     thePixelTracksIter0Token_;
+//  edm::EDGetTokenT<TrajectorySeedCollection>  theSeedsIter0Token_;
+//  edm::EDGetTokenT<TrajectorySeedCollection>  theSeedsIter2Token_;
+//  edm::EDGetTokenT<TrackCandidateCollection>  theTracksCandIter0Token_;
+//  edm::EDGetTokenT<TrackCandidateCollection>  theTracksCandIter2Token_;
+//  edm::EDGetTokenT<TrackCandidateCollection>  theTracksCandOIToken_;
+//  edm::EDGetTokenT<TrackCandidateCollection>  theTracksCandOISToken_;
+//  edm::EDGetTokenT<TrackCandidateCollection>  theTracksCandOIHToken_;
+//  edm::EDGetTokenT<reco::TrackCollection>           theTracksNoHPIter0Token_;
+//  edm::EDGetTokenT<reco::TrackCollection>           theTracksNoHPIter2Token_;
+//  edm::EDGetTokenT<reco::TrackCollection>           theTracksIter0Token_;
+//  edm::EDGetTokenT<reco::TrackCollection>           theTracksIter2Token_;
+//  edm::EDGetTokenT<reco::TrackCollection>           theTracksToken_;
+//  edm::EDGetTokenT<reco::TrackCollection>           theTracksOIToken_;
+//  edm::EDGetTokenT<reco::TrackCollection>           theTracksOISToken_;
+//  edm::EDGetTokenT<reco::TrackCollection>           theTracksOIHToken_;
+//  edm::EDGetTokenT<reco::MuonTrackLinksCollection>  theIOLinksToken_;
+//  edm::EDGetTokenT<reco::MuonTrackLinksCollection>  theOILinksToken_;
   edm::EDGetTokenT<reco::MuonTrackLinksCollection>  theLinksToken_;
   edm::EDGetTokenT<reco::TrackExtraCollection>  theMuonsWithHitsToken_;
   edm::EDGetTokenT<std::vector< PileupSummaryInfo > >  puSummaryInfo_;
@@ -266,36 +270,38 @@ MuonHLTDebugger::MuonHLTDebugger(const edm::ParameterSet& cfg):
   isMC_                   (cfg.getUntrackedParameter<bool>("isMC")),
   runSharedHits_          (cfg.getUntrackedParameter<bool>("runSharedHits")),
   UseGenInfo_             (cfg.getUntrackedParameter<bool>("UseGenInfo")),
-  thePixelTracksIter0Token_ (mayConsume<reco::TrackCollection>(edm::InputTag("hltIter0IterL3MuonPixelSeedsFromPixelTracks","","REHLT"))),
-  theSeedsIter0Token_     (mayConsume<TrajectorySeedCollection>(edm::InputTag("hltIter0IterL3MuonPixelSeedsFromPixelTracks","","REHLT"))),
-  theSeedsIter2Token_     (mayConsume<TrajectorySeedCollection>(edm::InputTag("hltIter2IterL3MuonPixelSeeds","","REHLT"))),
-  theTracksCandIter0Token_(mayConsume<TrackCandidateCollection>(edm::InputTag("hltIter0IterL3MuonCkfTrackCandidates","","REHLT"))),
-  theTracksCandIter2Token_(mayConsume<TrackCandidateCollection>(edm::InputTag("hltIter2IterL3MuonCkfTrackCandidates","","REHLT"))),
-  theTracksCandOIToken_   (mayConsume<TrackCandidateCollection>(edm::InputTag("hltIterL3OITrackCandidates","","REHLT"))),
-  theTracksCandOISToken_   (mayConsume<TrackCandidateCollection>(edm::InputTag("hltL3TrackCandidateFromL2OIState","","REHLT"))),
-  theTracksCandOIHToken_   (mayConsume<TrackCandidateCollection>(edm::InputTag("hltL3TrackCandidateFromL2OIHit","","REHLT"))),
-  theTracksNoHPIter0Token_(mayConsume<reco::TrackCollection>(edm::InputTag("hltIter0IterL3MuonCtfWithMaterialTracks","","REHLT"))),
-  theTracksNoHPIter2Token_(mayConsume<reco::TrackCollection>(edm::InputTag("hltIter2IterL3MuonCtfWithMaterialTracks","","REHLT"))),
-  theTracksIter0Token_    (mayConsume<reco::TrackCollection>(edm::InputTag("hltIter0IterL3MuonTrackSelectionHighPurity","","REHLT"))),
-  theTracksIter2Token_    (mayConsume<reco::TrackCollection>(edm::InputTag("hltIter2IterL3MuonTrackSelectionHighPurity","","REHLT"))),
-  theTracksToken_         (mayConsume<reco::TrackCollection>(edm::InputTag("hltIter2IterL3MuonMerged","","REHLT"))),
-  theTracksOIToken_       (mayConsume<reco::TrackCollection>(edm::InputTag("hltIterL3MuonSeededTracksOutIn","","REHLT"))),
-  theTracksOISToken_       (mayConsume<reco::TrackCollection>(edm::InputTag("hltL3TkTracksFromL2OIState","","REHLT"))),
-  theTracksOIHToken_       (mayConsume<reco::TrackCollection>(edm::InputTag("hltL3TkTracksFromL2OIHit","","REHLT"))),
-  theIOLinksToken_        (mayConsume<reco::MuonTrackLinksCollection>(edm::InputTag("hltL3MuonsIterL3IO","","REHLT"))),
-  theOILinksToken_        (mayConsume<reco::MuonTrackLinksCollection>(edm::InputTag("hltL3MuonsIterL3OI","","REHLT"))),
+//  theIOTracksToken_       (consumes<reco::TrackCollection>(edm::InputTag("hltIter2IterL3MuonMerged","","TEST"))),
+//  theIOFromL1TracksToken_ (consumes<reco::TrackCollection>(edm::InputTag("hltIter2IterL3FromL1MuonMerged","","TEST"))),
+//  theOITracksToken_       (consumes<reco::TrackCollection>(edm::InputTag("hltIterL3OIMuCtfWithMaterialTracks","","TEST"))),
+  //  thePixelTracksIter0Token_ (mayConsume<reco::TrackCollection>(edm::InputTag("hltIter0IterL3MuonPixelSeedsFromPixelTracks","","TEST"))),
+  //  theSeedsIter0Token_     (mayConsume<TrajectorySeedCollection>(edm::InputTag("hltIter0IterL3MuonPixelSeedsFromPixelTracks","","TEST"))),
+  //  theSeedsIter2Token_     (mayConsume<TrajectorySeedCollection>(edm::InputTag("hltIter2IterL3MuonPixelSeeds","","TEST"))),
+  //  theTracksCandIter0Token_(mayConsume<TrackCandidateCollection>(edm::InputTag("hltIter0IterL3MuonCkfTrackCandidates","","TEST"))),
+  //  theTracksCandIter2Token_(mayConsume<TrackCandidateCollection>(edm::InputTag("hltIter2IterL3MuonCkfTrackCandidates","","TEST"))),
+  //  theTracksCandOIToken_   (mayConsume<TrackCandidateCollection>(edm::InputTag("hltIterL3OITrackCandidates","","TEST"))),
+  //  theTracksCandOISToken_   (mayConsume<TrackCandidateCollection>(edm::InputTag("hltL3TrackCandidateFromL2OIState","","TEST"))),
+  //  theTracksCandOIHToken_   (mayConsume<TrackCandidateCollection>(edm::InputTag("hltL3TrackCandidateFromL2OIHit","","TEST"))),
+  //  theTracksNoHPIter0Token_(mayConsume<reco::TrackCollection>(edm::InputTag("hltIter0IterL3MuonCtfWithMaterialTracks","","TEST"))),
+  //  theTracksNoHPIter2Token_(mayConsume<reco::TrackCollection>(edm::InputTag("hltIter2IterL3MuonCtfWithMaterialTracks","","TEST"))),
+  //  theTracksIter0Token_    (mayConsume<reco::TrackCollection>(edm::InputTag("hltIter0IterL3MuonTrackSelectionHighPurity","","TEST"))),
+  //  theTracksIter2Token_    (mayConsume<reco::TrackCollection>(edm::InputTag("hltIter2IterL3MuonTrackSelectionHighPurity","","TEST"))),
+  //  theTracksOIToken_       (mayConsume<reco::TrackCollection>(edm::InputTag("hltIterL3MuonSeededTracksOutIn","","TEST"))),
+  //  theTracksOISToken_       (mayConsume<reco::TrackCollection>(edm::InputTag("hltL3TkTracksFromL2OIState","","TEST"))),
+  //  theTracksOIHToken_       (mayConsume<reco::TrackCollection>(edm::InputTag("hltL3TkTracksFromL2OIHit","","TEST"))),
+  //  theIOLinksToken_        (mayConsume<reco::MuonTrackLinksCollection>(edm::InputTag("hltL3MuonsIterL3IO","","TEST"))),
+  //  theOILinksToken_        (mayConsume<reco::MuonTrackLinksCollection>(edm::InputTag("hltL3MuonsIterL3OI","","TEST"))),
   theLinksToken_          (consumes<reco::MuonTrackLinksCollection>(cfg.getUntrackedParameter<edm::InputTag>("MuonLinksTag"))),
   theMuonsWithHitsToken_  (consumes<reco::TrackExtraCollection>(edm::InputTag("globalMuons"))),
   puSummaryInfo_          (consumes<std::vector< PileupSummaryInfo > >(edm::InputTag("addPileupInfo"))),
   theBeamSpotToken_       (consumes<reco::BeamSpot>(edm::InputTag("hltOnlineBeamSpot"))),
-  theVertexToken_         (consumes<reco::VertexCollection>(edm::InputTag("offlinePrimaryVertices"))),
-  theSeedsOIToken_        (mayConsume<TrajectorySeedCollection>(edm::InputTag("hltIterL3OISeedsFromL2Muons","","REHLT"))),
-  theSeedsOISToken_       (mayConsume<L3MuonTrajectorySeedCollection>(edm::InputTag("hltL3TrajSeedOIState","","REHLT"))),
-  theSeedsOIHToken_       (mayConsume<L3MuonTrajectorySeedCollection>(edm::InputTag("hltL3TrajSeedOIHit","","REHLT")))
+  theVertexToken_         (consumes<reco::VertexCollection>(edm::InputTag("offlinePrimaryVertices")))
+  //  theSeedsOIToken_        (mayConsume<TrajectorySeedCollection>(edm::InputTag("hltIterL3OISeedsFromL2Muons","","TEST"))),
+  //  theSeedsOISToken_       (mayConsume<L3MuonTrajectorySeedCollection>(edm::InputTag("hltL3TrajSeedOIState","","TEST"))),
+  //  theSeedsOIHToken_       (mayConsume<L3MuonTrajectorySeedCollection>(edm::InputTag("hltL3TrajSeedOIHit","","TEST")))
   //  targetMuonSelector_     ("isGlobalMuon && abs(eta) < 2.4 && pt > 10")
 {
   theService = new MuonServiceProxy(cfg.getParameter<ParameterSet>("ServiceParameters"));
-
+  
   usesResource("TFileService");
 }
 
@@ -453,7 +459,6 @@ MuonHLTDebugger::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup
 		  << " eta: " << gen->eta() 
 		  << " phi: " << gen->phi() << std::endl;
 
-
       /// DRAWING RESOLUTION PLOTS: 
       for (int ibx = l1Muons->getFirstBX(); ibx <= l1Muons->getLastBX(); ++ibx) {
 	if (ibx != 0) continue; 
@@ -487,7 +492,6 @@ MuonHLTDebugger::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup
 	      hists_["hltL1m_resPhi_endcap"]->Fill(l1muon->phi()-gen->phi());
 	    }
 	  }
-
 	} //l1Muons->begin(ibx)
       } //L1 l1Muons->getFirstBX()
       
@@ -571,6 +575,12 @@ MuonHLTDebugger::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup
       hists_["hltL2_resEta"]->Fill( recoMu.eta()-l2mu.eta());
       hists_["hltL2_resPhi"]->Fill( recoMu.phi()-l2mu.phi());
       hists_["hltL2_resPt"] ->Fill((recoMu.pt() -l2mu.pt())/recoMu.pt());
+      if (matchesL1[i] < targetMuons.size()) {
+	trigger::TriggerObject & l1mu = L1MuonTrigObjects[matchesL1[i]];      
+	hists_["hltL2L1_resEta"]->Fill(l1mu.eta()-l2mu.eta());
+	hists_["hltL2L1_resPhi"]->Fill(l1mu.phi()-l2mu.phi());
+	hists_["hltL2L1_resPt"] ->Fill((l1mu.pt()-l2mu.pt())/l2mu.pt());
+      }
       if (debuglevel_ > 1) { 
 	cout << "L2 Muon - pT, eta, phi, DR(mu,L2): " << l2mu.pt() << " , " << l2mu.eta() << " , "
 	     << l2mu.phi() << " , " << deltaR(recoMu,l2mu) << endl;
@@ -680,13 +690,27 @@ MuonHLTDebugger::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup
     std::cout << "Number of L2s passing filter = " << L2MuonTrigObjects.size() << " ( " << NumL2Matched << " ) " << std::endl;
     std::cout << "Number of L3s passing filter = " << L3MuonTrigObjects.size() << " ( " << NumL3Matched << " ) " << std::endl;
   }
-
+  
   ///////////////////////////////////////////////////////////////////////////////////////
   ///////////////////////////////////////////////////////////////////////////////////////
   ////////          EVENT DEBUGGING     
   ///////////////////////////////////////////////////////////////////////////////////////
   ///////////////////////////////////////////////////////////////////////////////////////
+//  edm::Handle<reco::TrackCollection> hltL3OITracks;
+//  iEvent.getByToken(theOITracksToken_, hltL3OITracks);    
+//  hists_["hlt_L3OI_numTracks"]->Fill(hltL3OITracks->size());
+//
+//  edm::Handle<reco::TrackCollection> hltL3IOTracks;
+//  iEvent.getByToken(theIOTracksToken_, hltL3IOTracks);    
+//  hists_["hlt_L3IO_numTracks"]->Fill(hltL3IOTracks->size());
+//
+//  edm::Handle<reco::TrackCollection> hltL3IOFromL1Tracks;
+//  iEvent.getByToken(theIOFromL1TracksToken_, hltL3IOFromL1Tracks);    
+//  hists_["hlt_L3IOFromL1_numTracks"]->Fill(hltL3IOFromL1Tracks->size());
+  
+
   /// CHECKING THE INSIDE-OUT SEQUENCE: 
+  /*
   try { 
     if (NumL2Matched>0){ 
       if (NumL3Matched>0) {
@@ -1155,7 +1179,7 @@ MuonHLTDebugger::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup
   }
   catch (...) {
   }
-
+  */
 }
 
 reco::MuonCollection MuonHLTDebugger::selectedMuons(const reco::MuonCollection & allMuons) { //,  const StringCutObjectSelector<reco::Muon> &selector){ 
@@ -1553,6 +1577,10 @@ MuonHLTDebugger::beginJob()
   hists_["hltL2_resPhi"] = outfile_->make<TH1F>("hltL2_resPhi", "L2 Resolution;#phi^{reco}-#phi^{HLT}",  20,  -0.05,   0.05);
   hists_["hltL2_resPt"]  = outfile_->make<TH1F>("hltL2_resPt",  "L2 Resolution;p_{T}^{reco}-p_{T}^{HLT}", 40,  -0.5,   0.5);
 
+  hists_["hltL2L1_resEta"] = outfile_->make<TH1F>("hltL2L1_resEta", "L2/L1 Resolution;#eta^{reco}-#eta^{HLT}",   100,  -0.25,   0.25);
+  hists_["hltL2L1_resPhi"] = outfile_->make<TH1F>("hltL2L1_resPhi", "L2/L1 Resolution;#phi^{reco}-#phi^{HLT}",   100,  -0.25,   0.25);
+  hists_["hltL2L1_resPt"]  = outfile_->make<TH1F>("hltL2L1_resPt",  "L2/L1 Resolution;p_{T}^{reco}-p_{T}^{HLT}", 100,  -0.5,   0.5);
+
   hists_["hltL3_pt"]     = outfile_->make<TH1F>("hltL3_pt",  "HLT (L3) p_{T}; p_{T} of L3 object", 18, pt_bins );
   hists_["hltL3_eta"]    = outfile_->make<TH1F>("hltL3_eta", "HLT (L3) #eta; #eta of L3 object", 15, eta_bins );
   hists_["hltL3_phi"]    = outfile_->make<TH1F>("hltL3_phi", "HLT (L3) #phi;#phi of L3 object", 13, phi_bins);
@@ -1636,14 +1664,10 @@ MuonHLTDebugger::beginJob()
   hists_["hlt_numSeedsIter0_PU"] = outfile_->make<TH2F>("hlt_numSeedsIter0_PU","Number of Seeds (Iter0) vs NPU", 75,  0,   75., 50, -0.5, 49.5);
   hists_["hlt_numSeedsIter2_PU"] = outfile_->make<TH2F>("hlt_numSeedsIter2_PU","Number of Seeds (Iter2) vs NPU", 75,  0,   75., 50, -0.5, 49.5);
 
-  hists_["hlt_numTracks"] = outfile_->make<TH1F>("hlt_numTracks","Number of Tracks (Iter0+Iter2)", 15, -0.5, 14.5);
-  hists_["hlt_numTracksIter0"] = outfile_->make<TH1F>("hlt_numTracksIter0","Number of Tracks (Iter0)", 15, -0.5, 14.5);
-  hists_["hlt_numTracksIter2"] = outfile_->make<TH1F>("hlt_numTracksIter2","Number of Tracks (Iter2)", 15, -0.5, 14.5);
-  hists_["hlt_numTracksCandIter0"] = outfile_->make<TH1F>("hlt_numTracksCandIter0","Number of Tracks Candidates (Iter0)", 15, -0.5, 14.5);
-  hists_["hlt_numTracksCandIter2"] = outfile_->make<TH1F>("hlt_numTracksCandIter2","Number of Tracks Candidates (Iter2)", 15, -0.5, 14.5);
-  hists_["hlt_numTracksNoHPIter0"] = outfile_->make<TH1F>("hlt_numTracksNoHPIter0","Number of Tracks No HP (Iter0)", 15, -0.5, 14.5);
-  hists_["hlt_numTracksNoHPIter2"] = outfile_->make<TH1F>("hlt_numTracksNoHPIter2","Number of Tracks No HP (Iter2)", 15, -0.5, 14.5);
-  
+  hists_["hlt_L3OI_numTracks"] = outfile_->make<TH1F>("hlt_L3OI_numTracks","Number of Tracks (outside-in)", 15, -0.5, 14.5);
+  hists_["hlt_L3IO_numTracks"] = outfile_->make<TH1F>("hlt_L3IO_numTracks","Number of Tracks (inside-out)", 15, -0.5, 14.5);
+  hists_["hlt_L3IOFromL1_numTracks"] = outfile_->make<TH1F>("hlt_L3IOFromL1_numTracks","Number of Tracks (inside-out fromL1)", 15, -0.5, 14.5);
+    
   hists_["hlt_numPixelHits"]      = outfile_->make<TH1F>("hlt_numPixelHits"     ,"Number of PixelHits (Iter0+Iter2)", 50, -0.5, 49.5);
   hists_["hlt_numPixelHitsIter0"] = outfile_->make<TH1F>("hlt_numPixelHitsIter0","Number of PixelHits (Iter0)", 50, -0.5, 49.5);
   hists_["hlt_numPixelHitsIter2"] = outfile_->make<TH1F>("hlt_numPixelHitsIter2","Number of PixelHits (Iter2)", 50, -0.5, 49.5);
